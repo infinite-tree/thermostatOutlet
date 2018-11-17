@@ -1,0 +1,12 @@
+ [Unit]
+ Description=Outlet Timer Service
+ After=multi-user.target
+
+ [Service]
+ Type=idle
+ ExecStart=/usr/bin/python /home/pi/thermostatOutlet/outlet.py
+ User=pi
+ Group=pi
+
+ [Install]
+ WantedBy=multi-user.target
