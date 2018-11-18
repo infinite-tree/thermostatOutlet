@@ -99,11 +99,7 @@ class Heater(object):
         self.StartTime = None
         self.Influx = influx
 
-        self.Led.off()
-        if self.Inverted:
-            self.Outlet.on()
-        else:
-            self.Outlet.off()
+        self._off()
 
     def startup(self):
         self.Log.info("%s Should be running? %s"%(self.Name, self.Running))
@@ -149,6 +145,14 @@ class Heater(object):
         self.Config["running"] = value
         writeState(self.Name, self.Config)
 
+    def _on(sef):
+        # invert output if needed
+        self.Led.on()
+        if self.Inverted:
+            self.Outlet.off()
+        else:
+            self.Outlet.on()
+
     def on(self):
         self.Log.info("%s - %s is STARTING"%(datetime.datetime.now(), self.Name))
         self.StartTime = datetime.datetime.now()
@@ -156,22 +160,20 @@ class Heater(object):
         if self.Multistart:
             self.multiStartup()
 
-        #invert output if needed
-        self.Led.on()
-        if self.Inverted:
-            self.Outlet.off()
-        else:
-            self.Outlet.on()
+        self._on()
         time.sleep(0.5)
         self.Log.info("%s - %s is ON"%(datetime.datetime.now(), self.Name))
 
-    def off(self):
-        self.Running = False
+    def _off(self):
         self.Led.off()
         if self.Inverted:
             self.Outlet.on()
         else:
             self.Outlet.off()
+
+    def off(self):
+        self.Running = False
+        self._off()
         self.Log.info("%s - %s is OFF"%(datetime.datetime.now(), self.Name))
         if self.StartTime is not None:
             self.Used = int((datetime.datetime.now() - self.StartTime).seconds/60)
@@ -179,39 +181,19 @@ class Heater(object):
 
     def multiStartup(self, loops=MULTI_LOOPS):
         for x in range(loops):
-            self.Led.on()
-            if self.Inverted:
-                self.Outlet.off()
-            else:
-                self.Outlet.on()
+            self._on()
             time.sleep(ON_PAUSE)
-
-            if self.Inverted:
-                self.Outlet.on()
-            else:
-                self.Outlet.off()
-
-            self.Led.off()
+            self._off()
             time.sleep(OFF_PAUSE)
 
     def cycle(self):
         if self.PeriodicCycle and self.Running:
             self.Log.info("%s - %s is CYCLING"%(datetime.datetime.now(), self.Name))
-            if self.Inverted:
-                self.Outlet.on()
-            else:
-                self.Outlet.off()
-
-            self.Led.off()
+            self._off()
             time.sleep(OFF_PAUSE)
 
             self.multiStartup(CYCLE_COUNT)
-            self.Led.on()
-
-            if self.Inverted:
-                self.Outlet.off()
-            else:
-                self.Outlet.on()
+            self._on()
             self.Log.info("%s - %s is RUNNING"%(datetime.datetime.now(), self.Name))
 
     def outletCheck(self):
