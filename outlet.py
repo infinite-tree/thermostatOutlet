@@ -16,7 +16,7 @@ from gpiozero import DigitalInputDevice, LED, OutputDevice
 from influxdb import InfluxDBClient
 
 
-LOG_FILE = "~/thermostat_outlet.log"
+LOG_FILE = "~/logs/thermostat_outlet.log"
 CONFIG_FILE = os.path.expanduser("~/.outlet.config")
 INFLUXDB_CONFIG_FILE = os.path.expanduser("~/.influxdb.config")
 
@@ -68,7 +68,9 @@ config = {
         (54,3),
         (55, 2),
         (58, 1),
-        (62, 0),
+        (59, 1),
+        (60, 1),
+        (61, 0),
         (99, 0)
     ],
     "dht22": {
@@ -195,6 +197,7 @@ class Heater(object):
             self.multiStartup(CYCLE_COUNT)
             self._on()
             self.Log.info("%s - %s is RUNNING"%(datetime.datetime.now(), self.Name))
+            time.sleep(OFF_PAUSE)
 
     def outletCheck(self):
         if self.Running and not self.Feedback.is_active:
