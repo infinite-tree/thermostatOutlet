@@ -447,13 +447,14 @@ def main():
     temp_sensor = TempSensor(config["dht22"]["pin"])
     heat_map = config["temps"]
 
+    # import pdb
+    # pdb.set_trace()
+
+
     # Startup the heaters after everything has been initialized
     for heater in heaters:
         heater.startup()
 
-
-    # import pdb
-    # pdb.set_trace()
 
     ######################################################
     log.info("%s - ENTERING RUN LOOP"%(datetime.datetime.now()))
