@@ -213,10 +213,11 @@ class Heater(object):
         if self.StartTime is not None:
             self.Used = int((datetime.datetime.now() - self.StartTime).seconds/60)
 
-            self.Influx.sendMeasurement("remaining_runtime", self.Name, self.RemainingTime)
             if self.RemainingTime <= 0:
                 self.Log.error("%s - %s shutting off because runtime exceeded"%(datetime.datetime.now(), self.Name))
                 self.off()
+
+        self.Influx.sendMeasurement("remaining_runtime", self.Name, self.RemainingTime)
 
 
 class TempSensor(object):
