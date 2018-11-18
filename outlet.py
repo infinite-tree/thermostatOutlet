@@ -252,7 +252,11 @@ class InfluxWrapper(object):
     def writePoints(self):
         ret = None
         for x in range(10):
-            ret = self.Influx.write_points(self.Points)
+            try:
+                ret = self.Influx.write_points(self.Points)
+            except Exception as e:
+                self.Log.error("Influxdb point failure: %s"%(e))
+                ret = 0
             if ret:
                 self.Log.info("%s - Sent %d points to Influx"%(datetime.datetime.now(), len(self.Points)))
                 self.LastSent = datetime.datetime.now()
