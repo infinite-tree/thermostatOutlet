@@ -372,6 +372,7 @@ def loop(log, influx, temp_sensor, heat_map, heaters):
 
     while True:
         now = datetime.datetime.now()
+        log.info("Current Temp: %.2f"%(temp_sensor.fahrenheit))
         # adjust running heaters
         if now - prev_loop > LOOP_DELAY:
             prev_loop = now
