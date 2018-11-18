@@ -17,7 +17,7 @@ from influxdb import InfluxDBClient
 
 
 LOG_FILE = "~/logs/thermostat_outlet.log"
-CONFIG_FILE = os.path.expanduser("~/.outlet.config")
+CONFIG_FILE = os.path.expanduser("~/.outlet.config2")
 INFLUXDB_CONFIG_FILE = os.path.expanduser("~/.influxdb.config")
 
 MULTI_LOOPS = 3
@@ -38,7 +38,7 @@ config = {
             "multistart": True,
             "cycle": True,
             "running": False,
-            "capacity": 11*60,
+            "capacity": int(11*60),
             "used": 0
         },
         "heater_b": {
@@ -49,8 +49,8 @@ config = {
             "multistart": True,
             "cycle": True,
             "running": False,
-            "capacity": 8.5*60,
-            "used": 0
+            "capacity": int(8.5*60),
+            "used": 280
         },
         "heater_c": {
             "outlet_pin": 12,
@@ -60,24 +60,24 @@ config = {
             "multistart": True,
             "cycle": False,
             "running": False,
-            "capacity": 10.75*60,
-            "used": 0
+            "capacity": int(10.75*60),
+            "used": 35
         }
     },
     "temps": [
-        (54,3),
-        (55, 2),
+        (54, 3),
+        (55, 3),
+        (57, 2),
         (58, 1),
-        (59, 1),
-        (60, 1),
-        (61, 0),
+        (62, 1),
+        (63, 0),
         (99, 0)
     ],
     "dht22": {
         "pin": 21
     },
     "site": {
-        "location": "farmhouse",
+        "location": "greenhouse",
         "controller": "thermostatOutlet1"
     }
 }
@@ -87,7 +87,7 @@ def writeState(name, conf):
     global config
     config["heaters"][name] = conf
     with open(CONFIG_FILE, "w") as f:
-        f.write(json.dumps(config))
+        f.write(json.dumps(config, sort_keys=True, indent=4, separators=(',', ': ')))
 
 
 class Heater(object):
@@ -98,7 +98,7 @@ class Heater(object):
         self.Led = LED(conf["led_pin"])
         self.Feedback = DigitalInputDevice(conf["feedback_pin"], pull_up=True)
         self.Config = conf
-        self.StartTime = None
+        self.UpdateTime = None
         self.Influx = influx
 
         self._off()
@@ -157,7 +157,7 @@ class Heater(object):
 
     def on(self):
         self.Log.info("%s - %s is STARTING"%(datetime.datetime.now(), self.Name))
-        self.StartTime = datetime.datetime.now()
+        self.UpdateTime = datetime.datetime.now()
         self.Running = True
         if self.Multistart:
             self.multiStartup()
@@ -177,9 +177,9 @@ class Heater(object):
         self.Running = False
         self._off()
         self.Log.info("%s - %s is OFF"%(datetime.datetime.now(), self.Name))
-        if self.StartTime is not None:
-            self.Used = int((datetime.datetime.now() - self.StartTime).seconds/60)
-            self.StartTime = None
+        if self.UpdateTime is not None:
+            self.Used += int((datetime.datetime.now() - self.UpdateTime).seconds/60)
+            self.UpdateTime = None
 
     def multiStartup(self, loops=MULTI_LOOPS):
         for x in range(loops):
@@ -210,8 +210,10 @@ class Heater(object):
     def updateRuntime(self):
         running = 1 if self.Running else 0
         self.Influx.sendMeasurement("running_heater", self.Name, running)
-        if self.StartTime is not None:
-            self.Used = int((datetime.datetime.now() - self.StartTime).seconds/60)
+        if self.UpdateTime is not None:
+            now = datetime.datetime.now()
+            self.Used = int((now - self.UpdateTime).seconds/60)
+            self.UpdateTime = now
 
             if self.RemainingTime <= 0:
                 self.Log.error("%s - %s shutting off because runtime exceeded"%(datetime.datetime.now(), self.Name))
@@ -369,6 +371,7 @@ def loop(log, influx, temp_sensor, heat_map, heaters):
     while True:
         now = datetime.datetime.now()
         log.info("Current Temp: %.2f"%(temp_sensor.fahrenheit))
+        # TODO: Log temperature to INFLUX
         # adjust running heaters
         if now - prev_loop > LOOP_DELAY:
             prev_loop = now
@@ -426,12 +429,14 @@ def main():
     else:
         log.error("No config file '%s' found. Defaulting to builtin config"%(CONFIG_FILE))
 
+    # FIXME: One Time: remove the original config file
+    os.remove(CONFIG_FILE[:-1])
+
     influx = InfluxWrapper(log, influx_config, config['site'])
 
     heaters = []
     for name, conf in config["heaters"].items():
         heaters.append(Heater(name, log, conf, influx))
-
 
 
     temp_sensor = TempSensor(config["dht22"]["pin"])
@@ -442,6 +447,7 @@ def main():
 
 
     # Startup the heaters after everything has been initialized
+    log.info("%s - Starting heaters..."%(datetime.datetime.now()))
     for heater in heaters:
         heater.startup()
 
