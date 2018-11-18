@@ -125,7 +125,7 @@ class Heater(object):
 
     @property
     def RemainingTime(self):
-        return self.Capacity - self.Used
+        return int(self.Capacity - self.Used)
 
     @property
     def Used(self):
@@ -133,7 +133,7 @@ class Heater(object):
 
     @Used.setter
     def Used(self, value):
-        self.Config["used"] = value
+        self.Config["used"] = int(value)
         writeState(self.Name, self.Config)
 
     @property
