@@ -10,3 +10,12 @@ This controller hope to solve that problem for a 3,000 sqft greenhouse using 3 f
 ## Status
 Experimental yet mission critical
 
+
+## Installation
+
+```
+sudo cp outlet.service /etc/systemd/system/multi-user.target.wants/
+sudo systemctl enable outlet.service
+sudo systemctl start outlet.service
+```
+

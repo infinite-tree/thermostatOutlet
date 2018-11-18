@@ -190,7 +190,7 @@ class Heater(object):
             time.sleep(OFF_PAUSE)
 
     def cycle(self):
-        if self.PeriodicCycle:
+        if self.PeriodicCycle and self.Running:
             self.Log.info("%s - %s is CYCLING"%(datetime.datetime.now(), self.Name))
             if self.Inverted:
                 self.Outlet.on()
