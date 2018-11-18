@@ -145,7 +145,7 @@ class Heater(object):
         self.Config["running"] = value
         writeState(self.Name, self.Config)
 
-    def _on(sef):
+    def _on(self):
         # invert output if needed
         self.Led.on()
         if self.Inverted:
