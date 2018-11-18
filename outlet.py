@@ -301,7 +301,7 @@ def sortHeaters(log, heaters):
     runnable_heaters = []
     for heater in heaters:
         log.info("%s - %s has %d minutes of runtime remaining. Currently running? %s"%(datetime.datetime.now(), heater.Name, heater.RemainingTime, heater.Running))
-        if heater.RemainingTime > LOOP_DELAY.seconds/60 or heater.Running:
+        if heater.RemainingTime > LOOP_DELAY.seconds/60:
             runnable_heaters.append(heater)
 
     # Prioritize heaters that are already running
@@ -340,7 +340,7 @@ def runHeaters(log, heaters, heat_map, temp):
         # Turn on Heaters
         enabled = 0
         needed = heater_count - running_heaters
-        for heater in heaters:
+        for heater in ordered_heaters:
             if not heater.Running:
                 heater.on()
                 enabled += 1
@@ -392,9 +392,9 @@ def loop(log, influx, temp_sensor, heat_map, heaters):
                 log.error("%s - %s outlet is not functioning"%(datetime.datetime.now(), heater.Name))
 
         # TODO: Add a reset button or something to reset runtime when re-fueled
-        am11 = datetime.time(11, 0, 0)
-        am1102 = datetime.time(11, 2, 0)
-        if now.time() > am11 and now.time() < am1102:
+        pm3 = datetime.time(15, 0, 0)
+        pm302 = datetime.time(15, 2, 0)
+        if now.time() > pm3 and now.time() < pm302:
             log.info("%s - Reseting fuel levels"%(now))
             for heater in heaters:
                 heater.Used = 0
