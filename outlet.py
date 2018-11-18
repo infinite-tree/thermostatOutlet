@@ -99,11 +99,16 @@ class Heater(object):
         self.StartTime = None
         self.Influx = influx
 
+        self.Led.off()
+        if self.Inverted:
+            self.Outlet.on()
+        else:
+            self.Outlet.off()
+
+    def startup(self):
         self.Log.info("%s Should be running? %s"%(self.Name, self.Running))
         if self.Config["running"]:
             self.on()
-        else:
-            self.off()
 
     @property
     def Multistart(self):
@@ -436,6 +441,11 @@ def main():
     heaters = []
     for name, conf in config["heaters"].items():
         heaters.append(Heater(name, log, conf, influx))
+
+    # Startup the heaters after everything has been initialized
+    for heater in heaters:
+        heater.startup()
+
 
     temp_sensor = TempSensor(config["dht22"]["pin"])
     heat_map = config["temps"]
