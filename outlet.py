@@ -17,7 +17,7 @@ from influxdb import InfluxDBClient
 
 
 LOG_FILE = "~/logs/thermostat_outlet.log"
-CONFIG_FILE = os.path.expanduser("~/.outlet.config2")
+CONFIG_FILE = os.path.expanduser("~/.outlet.config")
 INFLUXDB_CONFIG_FILE = os.path.expanduser("~/.influxdb.config")
 
 MULTI_LOOPS = 3
@@ -50,7 +50,7 @@ config = {
             "cycle": True,
             "running": False,
             "capacity": int(8.5*60),
-            "used": 280
+            "used": 290
         },
         "heater_c": {
             "outlet_pin": 12,
@@ -61,7 +61,7 @@ config = {
             "cycle": False,
             "running": False,
             "capacity": int(10.75*60),
-            "used": 35
+            "used": 55
         }
     },
     "temps": [
@@ -212,7 +212,7 @@ class Heater(object):
         self.Influx.sendMeasurement("running_heater", self.Name, running)
         if self.UpdateTime is not None:
             now = datetime.datetime.now()
-            self.Used = int((now - self.UpdateTime).seconds/60)
+            self.Used += int((now - self.UpdateTime).seconds/60)
             self.UpdateTime = now
 
             if self.RemainingTime <= 0:
@@ -428,9 +428,6 @@ def main():
             config = json.loads(f.read())
     else:
         log.error("No config file '%s' found. Defaulting to builtin config"%(CONFIG_FILE))
-
-    # FIXME: One Time: remove the original config file
-    os.remove(CONFIG_FILE[:-1])
 
     influx = InfluxWrapper(log, influx_config, config['site'])
 
