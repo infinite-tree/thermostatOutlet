@@ -169,7 +169,7 @@ class Heater(object):
             self.Outlet.off()
         self.Log.info("%s - %s is OFF"%(datetime.datetime.now(), self.Name))
         if self.StartTime is not None:
-            self.Used = (datetime.datetime.now() - self.StartTime).seconds/60
+            self.Used = int((datetime.datetime.now() - self.StartTime).seconds/60)
             self.StartTime = None
 
     def multiStartup(self, loops=MULTI_LOOPS):
@@ -221,7 +221,8 @@ class Heater(object):
         running = 1 if self.Running else 0
         self.Influx.sendMeasurement("running_heater", self.Name, running)
         if self.StartTime is not None:
-            self.Used = (datetime.datetime.now() - self.StartTime).seconds/60
+            self.Used = int((datetime.datetime.now() - self.StartTime).seconds/60)
+
             self.Influx.sendMeasurement("remaining_runtime", self.Name, self.RemainingTime)
             if self.RemainingTime <= 0:
                 self.Log.error("%s - %s shutting off because runtime exceeded"%(datetime.datetime.now(), self.Name))
@@ -414,7 +415,7 @@ def main():
 
     log.addHandler(handler)
     log.addHandler(logging.StreamHandler())
-    log.info("%s - TIMER STARTED"%(datetime.datetime.now()))
+    log.info("%s - THERMOSTAT OUTLET STARTED"%(datetime.datetime.now()))
 
     # Setup influxdb
     with open(INFLUXDB_CONFIG_FILE) as f:
