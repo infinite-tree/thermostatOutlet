@@ -50,7 +50,7 @@ config = {
             "cycle": True,
             "running": False,
             "capacity": int(8.5*60),
-            "used": 290
+            "used": 0
         },
         "heater_c": {
             "outlet_pin": 12,
@@ -61,7 +61,7 @@ config = {
             "cycle": False,
             "running": False,
             "capacity": int(10.75*60),
-            "used": 55
+            "used": 0
         }
     },
     "temps": [
@@ -371,7 +371,8 @@ def loop(log, influx, temp_sensor, heat_map, heaters):
     while True:
         now = datetime.datetime.now()
         log.info("Current Temp: %.2f"%(temp_sensor.fahrenheit))
-        # TODO: Log temperature to INFLUX
+        influx.sendMeasurement("temperature_fahrenheit", "none", temp_sensor.fahrenheit)
+
         # adjust running heaters
         if now - prev_loop > LOOP_DELAY:
             prev_loop = now
