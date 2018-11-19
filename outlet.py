@@ -232,7 +232,7 @@ class TempSensor(object):
     def __init__(self, pin, influx):
         self.Pin = pin
         self.Influx = influx
-        self.Last = f
+        self.Last = 0.0
 
     @property
     def fahrenheit(self):
