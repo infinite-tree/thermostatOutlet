@@ -79,7 +79,7 @@ config = {
         "pin": 21
     },
     "site": {
-        "location": "greenhouse",
+        "location": "farmhouse",
         "controller": "thermostatOutlet1"
     }
 }
@@ -455,7 +455,7 @@ def main():
         heaters.append(Heater(name, log, conf, influx))
 
 
-    temp_sensor = TempSensor(config["dht22"]["pin"])
+    temp_sensor = TempSensor(config["dht22"]["pin"], influx)
     heat_map = config["temps"]
 
     # import pdb
