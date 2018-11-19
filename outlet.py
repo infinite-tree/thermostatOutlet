@@ -226,11 +226,15 @@ class TempSensor(object):
     def __init__(self, pin):
         self.Pin = pin
         f = self.fahrenheit
+        self.Last = 0
 
     @property
     def fahrenheit(self):
         rh, t = Adafruit_DHT.read_retry(Adafruit_DHT.DHT22, self.Pin)
-        return t * 1.8 + 32
+        if t is not None:
+            self.Last = t * 1.8 + 32
+
+        return self.Last
 
 
 class InfluxWrapper(object):
@@ -370,14 +374,13 @@ def loop(log, influx, temp_sensor, heat_map, heaters):
 
     while True:
         now = datetime.datetime.now()
-        log.info("Current Temp: %.2f"%(temp_sensor.fahrenheit))
-        influx.sendMeasurement("temperature_fahrenheit", "none", temp_sensor.fahrenheit)
+        temp = temp_sensor.fahrenheit
+        log.info("%s - Current Temp: %.2f"%(datetime.datetime.now(), temp))
+        influx.sendMeasurement("temperature_fahrenheit", "none", temp)
 
         # adjust running heaters
         if now - prev_loop > LOOP_DELAY:
             prev_loop = now
-
-            temp = temp_sensor.fahrenheit
             runHeaters(log, heaters, heat_map, temp)
 
         # Cycle heaters that need it
