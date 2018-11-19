@@ -232,7 +232,6 @@ class TempSensor(object):
     def __init__(self, pin, influx):
         self.Pin = pin
         self.Influx = influx
-        f = self.fahrenheit
         self.Last = f
 
     @property
@@ -310,7 +309,7 @@ class InfluxWrapper(object):
         self.Points.append(point)
 
         now = datetime.datetime.now()
-        if len(self.Points) > self.MaxPoints or (now - self.LastSent).seconds >= self.Interval:
+        if len(self.Points) >= self.MaxPoints or (now - self.LastSent).seconds >= self.Interval:
             return self.writePoints()
         return True
 
@@ -438,7 +437,6 @@ def main():
     with open(INFLUXDB_CONFIG_FILE) as f:
         influx_config = json.loads(f.read())
 
-
     # Handle start state
     global config
 
@@ -448,19 +446,21 @@ def main():
     else:
         log.error("No config file '%s' found. Defaulting to builtin config"%(CONFIG_FILE))
 
+    log.info("%s - Initializing Influx"%(datetime.datetime.now()))
     influx = InfluxWrapper(log, influx_config, config['site'])
 
+    log.info("%s - Setting up heater objects"%(datetime.datetime.now()))
     heaters = []
     for name, conf in config["heaters"].items():
         heaters.append(Heater(name, log, conf, influx))
 
 
+    log.info("%s - Initializing Temp Sensor"%(datetime.datetime.now()))
     temp_sensor = TempSensor(config["dht22"]["pin"], influx)
     heat_map = config["temps"]
 
     # import pdb
     # pdb.set_trace()
-
 
     # Startup the heaters after everything has been initialized
     log.info("%s - Starting heaters..."%(datetime.datetime.now()))
