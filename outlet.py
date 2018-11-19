@@ -24,9 +24,11 @@ MULTI_LOOPS = 3
 ON_PAUSE = 20
 OFF_PAUSE = 5
 
+
 CYCLE_COUNT = 2
 CYCLE_DELAY = datetime.timedelta(minutes=18)
 LOOP_DELAY = datetime.timedelta(minutes=5)
+
 
 config = {
     "heaters": {
@@ -102,6 +104,10 @@ class Heater(object):
         self.Influx = influx
 
         self._off()
+
+
+    def __repr__(self):
+        return "%s: (%d/%d)"%(self.Name, self.Used, self.Capacity)
 
     def startup(self):
         self.Log.info("%s Should be running? %s"%(self.Name, self.Running))
@@ -223,16 +229,20 @@ class Heater(object):
 
 
 class TempSensor(object):
-    def __init__(self, pin):
+    def __init__(self, pin, influx):
         self.Pin = pin
+        self.Influx = influx
         f = self.fahrenheit
-        self.Last = 0
+        self.Last = f
 
     @property
     def fahrenheit(self):
         rh, t = Adafruit_DHT.read_retry(Adafruit_DHT.DHT22, self.Pin)
         if t is not None:
             self.Last = t * 1.8 + 32
+            self.Influx.sendMeasurement("working_dht22", "none", 1)
+        else:
+            self.Influx.sendMeasurement("working_dht22", "none", 0)
 
         return self.Last
 
