@@ -455,10 +455,13 @@ def main():
 
     ######################################################
     log.info("%s - ENTERING RUN LOOP"%(datetime.datetime.now()))
-    loop(log, influx, temp_sensor, heat_map, heaters)
-
-    return
+    try:
+        loop(log, influx, temp_sensor, heat_map, heaters)
+    except Exception as e:
+        log.error("Main loop failed: %s"%(e), exc_info=1)
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
