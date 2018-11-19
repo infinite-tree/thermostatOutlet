@@ -24,6 +24,9 @@ MULTI_LOOPS = 3
 ON_PAUSE = 20
 OFF_PAUSE = 5
 
+# only re-balance heaters after their differences is greater than N minutes
+HEATER_BALANCE = 20
+
 
 CYCLE_COUNT = 2
 CYCLE_DELAY = datetime.timedelta(minutes=18)
@@ -66,15 +69,8 @@ config = {
             "used": 0
         }
     },
-    "temps": [
-        (54, 3),
-        (55, 3),
-        (57, 2),
-        (58, 1),
-        (62, 1),
-        (63, 0),
-        (99, 0)
-    ],
+    "temp_setpoint": 62.0,
+    "temp_tolerance": 7.0,
     "dht22": {
         "pin": 21
     },
@@ -104,10 +100,6 @@ class Heater(object):
         self.Influx = influx
 
         self._off()
-
-
-    def __repr__(self):
-        return "%s: (%d/%d)"%(self.Name, self.Used, self.Capacity)
 
     def startup(self):
         self.Log.info("%s Should be running? %s"%(self.Name, self.Running))
@@ -227,6 +219,59 @@ class Heater(object):
 
         self.Influx.sendMeasurement("remaining_runtime", self.Name, self.RemainingTime)
 
+    ## Compare functions for determining which heater to run
+    def __eq__(self, other):
+        if abs(self.RemainingTime - other.RemainingTime) < HEATER_BALANCE:
+            if self.Running == other.Running:
+                if self.Capacity == other.Capacity:
+                    return True
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __lt__(self, other):
+        # NOTE: the ordering of these checks is critical
+        if abs(self.RemainingTime - other.RemainingTime) > HEATER_BALANCE and \
+           self.RemainingTime > other.RemainingTime:
+            # This heater has more runtime (comes first)
+            return True
+        elif self.Running and not other.Running:
+            # This heater is already running and the other isn't
+            return True
+        elif other.Running:
+            # Early out. If the other heater is running than it comes first
+            return False
+        elif self.Capacity > other.Capacity:
+            # This heater has more capacity so list it first
+            return True
+        return False
+
+    def __le__(self, other):
+        return self.__le__(other) or self.__eq__(other)
+
+    def __gt__(self, other):
+        if abs(other.RemainingTime - self.RemainingTime) > HEATER_BALANCE and \
+           other.RemainingTime > self.RemainingTime:
+            # The other heater has more runtime (it should come first)
+            return True
+        elif other.Running and not self.Running:
+            # The other heater is already running
+            return True
+        elif self.Running:
+            # Early out. If this heater is running it comes first
+            return False
+        elif other.Capacity > self.Capacity:
+            # The other heater has a higher capacity
+            return True
+        return False
+
+    def __ge__(self, other):
+        return self.__gt__(other) or self.__eq__(other)
+
+    def __repr__(self):
+        return "%s: (%d/%d) %s"%(self.Name, self.RemainingTime, self.Capacity, "On" if self.Running else "Off")
+
 
 class TempSensor(object):
     def __init__(self, pin, influx):
@@ -314,112 +359,140 @@ class InfluxWrapper(object):
         return True
 
 
-def sortHeaters(log, heaters):
-    # only heaters with runtime can be used
-    runnable_heaters = []
-    for heater in heaters:
-        log.info("%s - %s has %d minutes of runtime remaining. Currently running? %s"%(datetime.datetime.now(), heater.Name, heater.RemainingTime, heater.Running))
-        if heater.RemainingTime > LOOP_DELAY.seconds/60:
-            runnable_heaters.append(heater)
+class HeatController(object):
+    def __init__(self, log, heaters, temp_sensor, influx, config):
+        self.Log = log
+        self.Heaters = heaters
+        self.TempSensor = temp_sensor
+        self.Influx = influx
 
-    # Prioritize heaters that are already running
-    first = []
-    last = []
-    for heater in runnable_heaters:
-        if heater.Running:
-            first.append(heater)
-        else:
-            last.append(heater)
-    return first + last
+        self.Setpoint = config["temp_setpoint"]
+        self.Tolerance = config["temp_tolerance"]
+
+    def startup(self):
+        # Startup the heaters after everything has been initialized
+        self.Log.info("%s - Starting heaters..."%(datetime.datetime.now()))
+        for heater in self.Heaters:
+            heater.startup()
+
+    def runnableHeaters(self):
+        # Sort heaters in descending order by remaining runtime
+        sorted_heaters = sorted(self.Heaters)
+
+        # Split the heaters into the ones that can be run and the empty ones
+        runnable_heaters = []
+        for heater in sorted_heaters:
+            if heater.RemainingTime > LOOP_DELAY.seconds/60:
+                runnable_heaters.append(heater)
+
+        return runnable_heaters
 
 
-def runHeaters(log, heaters, heat_map, temp):
-    # Determine number of heaters to run
-    for heater_temp, heater_count in heat_map:
-        if temp <= heater_temp:
-            log.info("%s - Current Temp: %0.1fF, Heaters needed: %d"%(datetime.datetime.now(), temp, heater_count))
-            break
+    def caclulateHeaters(self, temp):
+        if temp >= self.Setpoint:
+            # No heat necessary
+            return 0
 
-    # Determine which heaters to run
-    ordered_heaters = sortHeaters(log, heaters)
-    if len(ordered_heaters) < heater_count:
-        log.error("Too many heaters in the heat map (%d) and not enough heaters (%d)"%(heater_count, len(ordered_heaters)))
-        heater_count = len(ordered_heaters)
+        # Scale the heaters to the tolerance
+        diff = self.Setpoint - temp
+        temp_range = (self.Tolerance - 0)
+        heater_range = (len(self.Heaters) - 0)
+        # Leaving the parts of the basic scale function in place for clarity
+        heaters_needed = (((min(diff, self.Tolerance) - 0) * heater_range) / temp_range) + 0
+        return round(heaters_needed)
 
-    running_heaters = 0
-    for heater in ordered_heaters:
-        if heater.Running:
-            running_heaters += 1
 
-    log.info("%s - Temp is %0.1fF, Desired heaters is %d. Running heaters is %d."%(datetime.datetime.now(), temp, heater_count, running_heaters))
+    def adjustHeat(self, temp):
+        # Log heater info
+        for heater in self.Heaters:
+            self.Log.info("%s - %s has %d minutes of runtime remaining. Currently running? %s"%(datetime.datetime.now(), heater.Name, heater.RemainingTime, heater.Running))
 
-    # Turn On/Off heaters
-    if running_heaters < heater_count:
-        # Turn on Heaters
-        enabled = 0
-        needed = heater_count - running_heaters
-        for heater in ordered_heaters:
-            if not heater.Running:
-                heater.on()
-                enabled += 1
+        # Determine number of heaters to run
+        needed_heaters = self.caclulateHeaters(temp)
+        self.Log.info("%s - Current Temp: %0.1fF, Heaters needed: %d"%(datetime.datetime.now(), temp, needed_heaters))
 
-            if enabled >= needed:
-                break
+        # Determine which heaters to run
+        ordered_heaters = self.runnableHeaters()
+        if len(ordered_heaters) < needed_heaters:
+            self.Log.error("Need to run %d heaters, but only %d are available. Running what we have..."%(needed_heaters, len(ordered_heaters)))
+            needed_heaters = len(ordered_heaters)
 
-    elif running_heaters > heater_count:
-        # Turn off heaters
-        disabled = 0
-        not_needed = running_heaters - heater_count
-        for heater in reversed(heaters):
+        running_heaters = 0
+        for heater in self.Heaters:
             if heater.Running:
-                heater.off()
-                disabled += 1
+                running_heaters += 1
 
-            if disabled >= not_needed:
-                break
-    else:
-        # Do nothing, they match
-        log.info("Running and Desired heater counts match. Nothing to do")
+        self.Log.info("%s - Temp is %0.1fF, Desired heaters is %d. Already running heaters is %d."%(datetime.datetime.now(), temp, needed_heaters, running_heaters))
+
+        # Turn On/Off heaters
+        if running_heaters < needed_heaters:
+            # Turn on Heaters
+            enabled = 0
+            remaining = needed_heaters - running_heaters
+            self.Log.info("%s - Turning ON %d heater(s)"%(datetime.datetime.now(), remaining))
+            for heater in ordered_heaters:
+                if not heater.Running:
+                    heater.on()
+                    enabled += 1
+
+                if enabled >= remaining:
+                    break
+
+        elif running_heaters > needed_heaters:
+            # Turn off heaters
+            disabled = 0
+            remaining = running_heaters - needed_heaters
+            self.Log.info("%s - Turning OFF %d heater(s)"%(datetime.datetime.now(), remaining))
+            for heater in sorted(self.Heaters, reverse=True):
+                if heater.Running:
+                    heater.off()
+                    disabled += 1
+
+                if disabled >= remaining:
+                    break
+        else:
+            # Do nothing, they match
+            self.Log.info("Running and Desired heater counts match. Nothing to do")
 
 
-def loop(log, influx, temp_sensor, heat_map, heaters):
-    prev_loop = datetime.datetime.now() - LOOP_DELAY
-    prev_cycle = datetime.datetime.now()
+    def run(self):
+        prev_loop = datetime.datetime.now() - LOOP_DELAY
+        prev_cycle = datetime.datetime.now()
 
-    while True:
-        now = datetime.datetime.now()
-        temp = temp_sensor.fahrenheit
-        log.info("%s - Current Temp: %.2f"%(datetime.datetime.now(), temp))
-        influx.sendMeasurement("temperature_fahrenheit", "none", temp)
+        while True:
+            now = datetime.datetime.now()
+            temp = self.TempSensor.fahrenheit
+            self.Log.info("%s - Current Temp: %.2f"%(datetime.datetime.now(), temp))
+            self.Influx.sendMeasurement("temperature_fahrenheit", "none", temp)
 
-        # adjust running heaters
-        if now - prev_loop > LOOP_DELAY:
-            prev_loop = now
-            runHeaters(log, heaters, heat_map, temp)
+            # adjust running heaters
+            if now - prev_loop > LOOP_DELAY:
+                prev_loop = now
+                self.adjustHeat(temp)
 
-        # Cycle heaters that need it
-        if now - prev_cycle > CYCLE_DELAY:
-            prev_cycle = now
-            for heater in heaters:
-                heater.cycle()
+            # Cycle heaters that need it
+            if now - prev_cycle > CYCLE_DELAY:
+                prev_cycle = now
+                for heater in self.Heaters:
+                    heater.cycle()
 
-        # Check outlets for running
-        for heater in heaters:
-            if not heater.outletCheck():
-                log.error("%s - %s outlet is not functioning"%(datetime.datetime.now(), heater.Name))
+            # Check outlets for running
+            for heater in self.Heaters:
+                if not heater.outletCheck():
+                    self.Log.error("%s - %s outlet is not functioning"%(datetime.datetime.now(), heater.Name))
 
-        # TODO: Add a reset button or something to reset runtime when re-fueled
-        pm3 = datetime.time(15, 0, 0)
-        pm302 = datetime.time(15, 2, 0)
-        if now.time() > pm3 and now.time() < pm302:
-            log.info("%s - Reseting fuel levels"%(now))
-            for heater in heaters:
-                heater.Used = 0
+            # TODO: Add a reset button or something to reset runtime when re-fueled
+            pm3 = datetime.time(15, 0, 0)
+            pm302 = datetime.time(15, 2, 0)
+            if now.time() > pm3 and now.time() < pm302:
+                self.Log.info("%s - Reseting fuel levels"%(now))
+                for heater in self.Heaters:
+                    heater.Used = 0
 
-        # Update runtime of heaters
-        for heater in heaters:
-            heater.updateRuntime()
-        time.sleep(60)
+            # Update runtime of heaters
+            for heater in self.Heaters:
+                heater.updateRuntime()
+            time.sleep(60)
 
 
 def main():
@@ -457,21 +530,18 @@ def main():
 
     log.info("%s - Initializing Temp Sensor"%(datetime.datetime.now()))
     temp_sensor = TempSensor(config["dht22"]["pin"], influx)
-    heat_map = config["temps"]
+
+    controller = HeatController(log, heaters, temp_sensor, influx, config)
 
     # import pdb
     # pdb.set_trace()
 
-    # Startup the heaters after everything has been initialized
-    log.info("%s - Starting heaters..."%(datetime.datetime.now()))
-    for heater in heaters:
-        heater.startup()
-
+    controller.startup()
 
     ######################################################
     log.info("%s - ENTERING RUN LOOP"%(datetime.datetime.now()))
     try:
-        loop(log, influx, temp_sensor, heat_map, heaters)
+        controller.run()
     except Exception as e:
         log.error("Main loop failed: %s"%(e), exc_info=1)
         return 1
