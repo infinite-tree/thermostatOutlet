@@ -230,18 +230,27 @@ class Heater(object):
     def __eq__(self, other):
         if abs(self.RemainingTime - other.RemainingTime) < HEATER_BALANCE:
             if self.Running == other.Running:
-                return True
+                if self.Capacity == other.Capacity:
+                    return True
         return False
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __lt__(self, other):
-        if self.RemainingTime - other.RemainingTime > HEATER_BALANCE:
+        # NOTE: the ordering of these checks is critical
+        if abs(self.RemainingTime - other.RemainingTime) > HEATER_BALANCE and \
+           self.RemainingTime > other.RemainingTime:
             # This heater has more runtime (comes first)
             return True
         elif self.Running and not other.Running:
             # This heater is already running and the other isn't
+            return True
+        elif other.Running:
+            # Early out. If the other heater is running than it comes first
+            return False
+        elif self.Capacity > other.Capacity:
+            # This heater has more capacity so list it first
             return True
         return False
 
@@ -249,11 +258,18 @@ class Heater(object):
         return self.__le__(other) or self.__eq__(other)
 
     def __gt__(self, other):
-        if other.RemainingTime - self.RemainingTime > HEATER_BALANCE:
+        if abs(other.RemainingTime - self.RemainingTime) > HEATER_BALANCE and \
+           other.RemainingTime > self.RemainingTime:
             # The other heater has more runtime (it should come first)
             return True
         elif other.Running and not self.Running:
             # The other heater is already running
+            return True
+        elif self.Running:
+            # Early out. If this heater is running it comes first
+            return False
+        elif other.Capacity > self.Capacity:
+            # The other heater has a higher capacity
             return True
         return False
 
@@ -261,7 +277,7 @@ class Heater(object):
         return self.__gt__(other) or self.__eq__(other)
 
     def __repr__(self):
-        return "%s: (%d/%d) %s"%(self.Name, self.Used, self.Capacity, "On" if self.Running else "Off")
+        return "%s: (%d/%d) %s"%(self.Name, self.RemainingTime, self.Capacity, "On" if self.Running else "Off")
 
 
 class TempSensor(object):
