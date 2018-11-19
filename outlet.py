@@ -271,6 +271,11 @@ class InfluxWrapper(object):
 
     def writePoints(self):
         ret = None
+
+        # drop old points if there are too many
+        if len(self.Points) > self.MaxPoints:
+            self.Points = self.Points[self.MaxPoints:]
+
         for x in range(10):
             try:
                 ret = self.Influx.write_points(self.Points)
