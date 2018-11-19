@@ -79,7 +79,7 @@ config = {
         "pin": 21
     },
     "site": {
-        "location": "farmhouse",
+        "location": "greenhouse",
         "controller": "thermostatOutlet1"
     }
 }
