@@ -44,7 +44,7 @@ config = {
             "multistart": True,
             "cycle": True,
             "running": False,
-            "capacity": int(11*60),
+            "capacity": int(10*60),
             "used": 0
         },
         "heater_b": {
@@ -66,7 +66,7 @@ config = {
             "multistart": True,
             "cycle": False,
             "running": False,
-            "capacity": int(10.75*60),
+            "capacity": int(10.25*60),
             "used": 0
         }
     },
@@ -465,7 +465,7 @@ class HeatController(object):
         while True:
             now = datetime.datetime.now()
             temp = self.TempSensor.fahrenheit
-            self.Log.info("%s - Current Temp: %.2f"%(datetime.datetime.now(), temp))
+            self.Log.info("%s - Current Temp: %.1f"%(datetime.datetime.now(), temp))
             self.Influx.sendMeasurement("temperature_fahrenheit", "none", temp)
 
             # adjust running heaters
