@@ -8,6 +8,7 @@ import json
 import logging
 import logging.handlers
 import os
+import subprocess
 import sys
 import time
 
@@ -278,15 +279,20 @@ class TempSensor(object):
         self.Pin = pin
         self.Influx = influx
         self.Last = 0.0
+        self.LastReading = datetime.datetime.now()
 
     @property
     def fahrenheit(self):
         rh, t = Adafruit_DHT.read_retry(Adafruit_DHT.DHT22, self.Pin)
         if t is not None:
             self.Last = t * 1.8 + 32
+            self.LastReading = datetime.datetime.now()
             self.Influx.sendMeasurement("working_dht22", "none", 1)
         else:
             self.Influx.sendMeasurement("working_dht22", "none", 0)
+            if datetime.datetime.now() - self.LastReading > datetime.timedelta(minutes=5):
+                # FIXME: reboot
+                subprocess.call("sudo reboot", shell=True)
 
         return self.Last
 
