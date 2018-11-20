@@ -290,9 +290,6 @@ class TempSensor(object):
             self.Influx.sendMeasurement("working_dht22", "none", 1)
         else:
             self.Influx.sendMeasurement("working_dht22", "none", 0)
-            if datetime.datetime.now() - self.LastReading > datetime.timedelta(minutes=5):
-                # FIXME: reboot
-                subprocess.call("sudo reboot", shell=True)
 
         return self.Last
 
