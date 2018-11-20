@@ -279,7 +279,7 @@ class TempSensor(object):
         self.Pin = pin
         self.Input = DigitalInputDevice(self.Pin, pull_up=True)
         self.Influx = influx
-        self.Last = 0.0
+        self.Last = 75.0
         self.LastReading = datetime.datetime.now()
 
     @property
