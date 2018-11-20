@@ -41,8 +41,8 @@ config = {
             "led_pin": 17,
             "invert_output": False,
             "feedback_pin": 4,
-            "multistart": True,
-            "cycle": True,
+            "multistart": False,
+            "cycle": False,
             "running": False,
             "capacity": int(10*60),
             "used": 0
