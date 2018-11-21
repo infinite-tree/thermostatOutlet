@@ -8,15 +8,15 @@ import json
 import logging
 import logging.handlers
 import os
+import serial
 import subprocess
 import sys
 import time
 
-import Adafruit_DHT
 from gpiozero import DigitalInputDevice, LED, OutputDevice
 from influxdb import InfluxDBClient
 
-
+DEFAULT_SERIAL_DEVICE = "/dev/ttyUSB0"
 LOG_FILE = "~/logs/thermostat_outlet.log"
 CONFIG_FILE = os.path.expanduser("~/.outlet.config")
 INFLUXDB_CONFIG_FILE = os.path.expanduser("~/.influxdb.config")
@@ -275,23 +275,43 @@ class Heater(object):
 
 
 class TempSensor(object):
-    def __init__(self, pin, influx):
+    def __init__(self, pin, influx, log):
         self.Pin = pin
         self.Influx = influx
+        self.Log = log
         self.Last = 75.0
         self.LastReading = datetime.datetime.now()
 
     @property
     def fahrenheit(self):
-        rh, t = Adafruit_DHT.read_retry(Adafruit_DHT.DHT22, self.Pin)
-        if t is not None:
-            self.Last = t * 1.8 + 32
-            self.LastReading = datetime.datetime.now()
-            self.Influx.sendMeasurement("working_dht22", "none", 1)
-        else:
-            self.Influx.sendMeasurement("working_dht22", "none", 0)
+        with serial.Serial(DEFAULT_SERIAL_DEVICE, 57600, timeout=2) as stream:
+            discard = stream.readline()
+            while len(discard) > 0:
+                discard = stream.readline()
 
-        return self.Last
+            stream.write("F\n")
+            t = None
+            for x in range(10):
+                temp = stream.readline()
+                if len(temp) > 0:
+                    t = temp
+                    break
+            if t:
+                try:
+                    self.Last = float(t)
+                except:
+                    self.Log.error("%s - DHT read error: %s"%(datetime.datetime.now(), t))
+                    self.Influx.sendMeasurement("working_dht22", "none", 0)
+                    return self.Last
+
+                self.Influx.sendMeasurement("working_dht22", "none", 1)
+                self.LastReading = datetime.datetime.now()
+
+            else:
+                self.Log.error("%s DHT timeout"%(datetime.datetime.now()))
+                self.Influx.sendMeasurement("working_dht22", "none", 0)
+
+            return self.Last
 
 
 class InfluxWrapper(object):
@@ -532,7 +552,7 @@ def main():
 
 
     log.info("%s - Initializing Temp Sensor"%(datetime.datetime.now()))
-    temp_sensor = TempSensor(config["dht22"]["pin"], influx)
+    temp_sensor = TempSensor(config["dht22"]["pin"], influx, log)
 
     controller = HeatController(log, heaters, temp_sensor, influx, config)
 
