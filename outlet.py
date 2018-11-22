@@ -96,17 +96,22 @@ class Arduino(object):
             stream.setDTR(True)
             time.sleep(0.022)
 
-    def _sendData(self, value):
-        with serial.Serial(DEFAULT_SERIAL_DEVICE, 57600, timeout=1) as stream:
-            discard = stream.readline()
-            while len(discard) > 0:
-                discard = stream.readline()
 
-            stream.write("%s\n"%(str(value)))
-            for x in range(3):
-                response = stream.readline()
-                if len(response) > 0:
-                    return response.strip()
+    def _sendData(self, value):
+        for y in range(3):
+            with serial.Serial(DEFAULT_SERIAL_DEVICE, 57600, timeout=1) as stream:
+                discard = stream.readline()
+                while len(discard) > 0:
+                    discard = stream.readline()
+
+                stream.write("%s\n"%(str(value)))
+                for x in range(3):
+                    response = stream.readline()
+                    if len(response) > 0:
+                        return response.strip()
+
+            # got no response
+            self._resetSerial()
 
         return None
 
@@ -357,7 +362,7 @@ class TempSensor(object):
         result = self.Influx.query('''SELECT "value" FROM "temperature_fahrenheit" WHERE ("location" = 'Greenhouse') AND time >= now() - 5m ORDER by time DESC LIMIT 1''')
         points = [p for p in result]
         if len(points) > 0:
-            return points[0][0]['value']
+            return float(points[0][0]['value'])
         return self.Last
 
 
@@ -545,7 +550,7 @@ class HeatController(object):
             now = datetime.datetime.now()
             temp = self.TempSensor.fahrenheit
             self.Log.info("%s - Current Temp: %.1f"%(datetime.datetime.now(), temp))
-            self.Influx.sendMeasurement("temperature_fahrenheit", "none", temp)
+            self.Influx.sendMeasurement("temperature_fahrenheit", "none", float(temp))
 
             # adjust running heaters
             if now - prev_loop > LOOP_DELAY:

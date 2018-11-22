@@ -5,7 +5,9 @@
 #include <dht.h>
 
 // Digital Temperature and Humidity Sensor
+#define DHT22_POWER         5
 #define DHT22_PIN           6
+
 #define OUTLET_A            10
 #define OUTLET_B            11
 #define OUTLET_C            12
@@ -21,6 +23,12 @@ float fahrenheit(double celsius) {
   return (float) celsius * 1.8 + 32;
 }
 
+void resetDHT22() {
+    digitalWrite(DHT22_POWER, LOW);
+    delay(200);
+    digitalWrite(DHT22_POWER, HIGH);
+}
+
 void readDHT22() {
     float value = 0.0;
     int chk = DHT.read22(DHT22_PIN);
@@ -32,12 +40,15 @@ void readDHT22() {
             break;
         case DHTLIB_ERROR_CHECKSUM:
             Serial.println("DHT22 Checksum error,\t");
+            resetDHT22();
             break;
         case DHTLIB_ERROR_TIMEOUT:
             Serial.println("DHT22 Time out error,\t");
+            resetDHT22();
             break;
         default:
             Serial.println("DHT22 Unknown error,\t");
+            resetDHT22();
             break;
     }
 }
@@ -48,6 +59,9 @@ void feedback(uint8_t pin) {
 }
 
 void setup() {
+    pinMode(DHT22_POWER, OUTPUT);
+    digitalWrite(DHT22_POWER, HIGH);
+
     pinMode(OUTLET_A, OUTPUT);
     pinMode(OUTLET_B, OUTPUT);
     pinMode(OUTLET_C, OUTPUT);
