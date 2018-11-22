@@ -37,41 +37,35 @@ LOOP_DELAY = datetime.timedelta(minutes=5)
 config = {
     "heaters": {
         "heater_a": {
-            "outlet_pin": 18,
-            "led_pin": 17,
-            "invert_output": False,
-            "feedback_pin": 4,
+            "outlet": 'a',
+            "feedback": '1',
             "multistart": False,
             "cycle": False,
             "running": False,
             "capacity": int(10*60),
-            "used": 0
+            "used": 0.0
         },
         "heater_b": {
-            "outlet_pin": 23,
-            "led_pin": 22,
-            "invert_output": False,
-            "feedback_pin": 5,
+            "outlet": 'b',
+            "feedback": '2',
             "multistart": True,
             "cycle": True,
             "running": False,
             "capacity": int(8.5*60),
-            "used": 0
+            "used": 0.0
         },
         "heater_c": {
-            "outlet_pin": 12,
-            "led_pin": 6,
-            "invert_output": False,
-            "feedback_pin": 13,
+            "outlet": 'c',
+            "feedback": '3',
             "multistart": True,
             "cycle": False,
             "running": False,
-            "capacity": int(10.25*60),
-            "used": 0
+            "capacity": int(10.45*60),
+            "used": 0.0
         }
     },
     "temp_setpoint": 62.0,
-    "temp_tolerance": 7.0,
+    "temp_tolerance": 5.0,
     "dht22": {
         "pin": 21
     },
@@ -89,13 +83,45 @@ def writeState(name, conf):
         f.write(json.dumps(config, sort_keys=True, indent=4, separators=(',', ': ')))
 
 
+class Arduino(object):
+    def _sendData(self, value):
+        with serial.Serial(DEFAULT_SERIAL_DEVICE, 57600, timeout=1) as stream:
+            discard = stream.readline()
+            while len(discard) > 0:
+                discard = stream.readline()
+
+            stream.write("%s\n"%(value))
+            for x in range(3):
+                response = stream.readline()
+                if len(response) > 0:
+                    return response
+
+        return None
+
+    def outletOn(self, outlet):
+        if self._sendData(outlet.upper()) == outlet.upper():
+            return True
+        return False
+
+    def outletOff(self, outlet):
+        if self._sendData(outlet.lower()) == outlet.lower():
+            return True
+        return False
+
+    def outletFeedback(self, feedback):
+        if self._sendData(feedback) == '1':
+            return True
+        return False
+
+    def getTemp(self):
+        return self._sendData('F')
+
+
 class Heater(object):
     def __init__(self, name, log, conf, influx):
         self.Log = log
         self.Name = name
-        self.Outlet = OutputDevice(conf["outlet_pin"])
-        self.Led = LED(conf["led_pin"])
-        self.Feedback = DigitalInputDevice(conf["feedback_pin"], pull_up=True)
+        self.Arduino = Arduino()
         self.Config = conf
         self.UpdateTime = None
         self.Influx = influx
@@ -112,9 +138,12 @@ class Heater(object):
         return self.Config.get("multistart", False)
 
     @property
-    def Inverted(self):
-        return self.Config.get("invert_output", False)
+    def Outlet(self):
+        return self.Config["outlet"]
 
+    @property
+    def Feedback(self):
+        return self.Config["feedback"]
 
     @property
     def PeriodicCycle(self):
@@ -147,12 +176,7 @@ class Heater(object):
         writeState(self.Name, self.Config)
 
     def _on(self):
-        # invert output if needed
-        self.Led.on()
-        if self.Inverted:
-            self.Outlet.off()
-        else:
-            self.Outlet.on()
+        self.Arduino.outletOn(self.Outlet)
 
     def on(self):
         self.Log.info("%s - %s is STARTING"%(datetime.datetime.now(), self.Name))
@@ -166,18 +190,14 @@ class Heater(object):
         self.Log.info("%s - %s is ON"%(datetime.datetime.now(), self.Name))
 
     def _off(self):
-        self.Led.off()
-        if self.Inverted:
-            self.Outlet.on()
-        else:
-            self.Outlet.off()
+        self.Arduino.outletOff(self.Outlet)
 
     def off(self):
         self.Running = False
         self._off()
         self.Log.info("%s - %s is OFF"%(datetime.datetime.now(), self.Name))
         if self.UpdateTime is not None:
-            self.Used += int((datetime.datetime.now() - self.UpdateTime).seconds/60)
+            self.Used += (datetime.datetime.now() - self.UpdateTime).seconds/60.0
             self.UpdateTime = None
 
     def multiStartup(self, loops=MULTI_LOOPS):
@@ -199,7 +219,8 @@ class Heater(object):
             time.sleep(OFF_PAUSE)
 
     def outletCheck(self):
-        if self.Running and not self.Feedback.is_active:
+        active = self.Arduino.outletFeedback(self.Feedback)
+        if self.Running and not active:
             self.Influx.sendMeasurement("working_outlet", self.Name, 0)
             return False
 
@@ -211,7 +232,7 @@ class Heater(object):
         self.Influx.sendMeasurement("running_heater", self.Name, running)
         if self.UpdateTime is not None:
             now = datetime.datetime.now()
-            self.Used += int((now - self.UpdateTime).seconds/60)
+            self.Used += (now - self.UpdateTime).seconds/60.0
             self.UpdateTime = now
 
             if self.RemainingTime <= 0:
@@ -282,36 +303,27 @@ class TempSensor(object):
         self.Last = 75.0
         self.LastReading = datetime.datetime.now()
 
+        self.Arduino = Arduino()
+
     @property
     def fahrenheit(self):
-        with serial.Serial(DEFAULT_SERIAL_DEVICE, 57600, timeout=2) as stream:
-            discard = stream.readline()
-            while len(discard) > 0:
-                discard = stream.readline()
-
-            stream.write("F\n")
-            t = None
-            for x in range(10):
-                temp = stream.readline()
-                if len(temp) > 0:
-                    t = temp
-                    break
-            if t:
-                try:
-                    self.Last = float(t)
-                except:
-                    self.Log.error("%s - DHT read error: %s"%(datetime.datetime.now(), t))
-                    self.Influx.sendMeasurement("working_dht22", "none", 0)
-                    return self.Last
-
-                self.Influx.sendMeasurement("working_dht22", "none", 1)
-                self.LastReading = datetime.datetime.now()
-
-            else:
-                self.Log.error("%s DHT timeout"%(datetime.datetime.now()))
+        t = self.Arduino.getTemp()
+        if t:
+            try:
+                self.Last = float(t)
+            except:
+                self.Log.error("%s - DHT read error: %s"%(datetime.datetime.now(), t))
                 self.Influx.sendMeasurement("working_dht22", "none", 0)
+                return self.Last
 
-            return self.Last
+            self.Influx.sendMeasurement("working_dht22", "none", 1)
+            self.LastReading = datetime.datetime.now()
+
+        else:
+            self.Log.error("%s DHT timeout"%(datetime.datetime.now()))
+            self.Influx.sendMeasurement("working_dht22", "none", 0)
+
+        return self.Last
 
 
 class InfluxWrapper(object):
@@ -474,8 +486,17 @@ class HeatController(object):
                 if disabled >= remaining:
                     break
         else:
-            # Do nothing, they match
-            self.Log.info("Running and Desired heater counts match. Nothing to do")
+            # Needed vs Running counts match. Re-balance
+            self.Log.info("Running and desired heater counts match. Re-balancing..")
+            running = 0
+            for heater in sorted(self.Heaters):
+                if running < needed_heaters:
+                    if not heater.Running:
+                        heater.on()
+                    running += 1
+                else:
+                    if heater.Running:
+                        heater.off()
 
 
     def run(self):
@@ -558,7 +579,6 @@ def main():
 
     # import pdb
     # pdb.set_trace()
-
     controller.startup()
 
     ######################################################
