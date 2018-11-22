@@ -94,7 +94,7 @@ class Arduino(object):
             for x in range(3):
                 response = stream.readline()
                 if len(response) > 0:
-                    return response
+                    return response.strip()
 
         return None
 
