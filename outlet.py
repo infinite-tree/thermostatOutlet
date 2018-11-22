@@ -13,7 +13,6 @@ import subprocess
 import sys
 import time
 
-from gpiozero import DigitalInputDevice, LED, OutputDevice
 from influxdb import InfluxDBClient
 
 DEFAULT_SERIAL_DEVICE = "/dev/ttyUSB0"
@@ -585,6 +584,10 @@ def main():
     log.addHandler(handler)
     log.addHandler(logging.StreamHandler())
     log.info("%s - THERMOSTAT OUTLET STARTED"%(datetime.datetime.now()))
+
+    lock_file = os.path.expanduser("~/.cache/duplicity/duply_heaters/lockfile.lock")
+    if os.path.isfile(lock_file):
+        os.remove(lock_file)
 
     # Setup influxdb
     with open(INFLUXDB_CONFIG_FILE) as f:
