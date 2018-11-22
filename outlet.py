@@ -254,9 +254,13 @@ class Heater(object):
 
     def __lt__(self, other):
         # NOTE: the ordering of these checks is critical
-        if abs(self.RemainingTime - other.RemainingTime) > HEATER_BALANCE and \
-           self.RemainingTime > other.RemainingTime:
+        if abs(self.RemainingTime - other.RemainingTime) > HEATER_BALANCE:
+            if self.RemainingTime > other.RemainingTime:
             # This heater has more runtime (comes first)
+                return True
+            else:
+                # Early out, the other has more runtime and the threshold has been exceeded
+                return False
             return True
         elif self.Running and not other.Running:
             # This heater is already running and the other isn't
@@ -273,10 +277,13 @@ class Heater(object):
         return self.__le__(other) or self.__eq__(other)
 
     def __gt__(self, other):
-        if abs(other.RemainingTime - self.RemainingTime) > HEATER_BALANCE and \
-           other.RemainingTime > self.RemainingTime:
-            # The other heater has more runtime (it should come first)
-            return True
+        if abs(other.RemainingTime - self.RemainingTime) > HEATER_BALANCE:
+            if other.RemainingTime > self.RemainingTime:
+               # The other heater has more runtime (it should come first)
+              return True
+            else:
+                # Early out, the other has less runtime and the threshold has been exceeded
+                return False
         elif other.Running and not self.Running:
             # The other heater is already running
             return True
@@ -579,6 +586,7 @@ def main():
 
     # import pdb
     # pdb.set_trace()
+
     controller.startup()
 
     ######################################################
