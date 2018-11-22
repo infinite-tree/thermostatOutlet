@@ -320,7 +320,7 @@ class TempSensor(object):
         self.Pin = pin
         self.Influx = influx
         self.Log = log
-        self.Last = 75.0
+        self.Last = 57.0
         self.LastReading = datetime.datetime.now()
 
         self.Arduino = arduino
