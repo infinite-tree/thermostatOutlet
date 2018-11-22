@@ -84,6 +84,19 @@ def writeState(name, conf):
 
 
 class Arduino(object):
+    def __init__(self):
+        self._resetSerial()
+
+    def _resetSerial(self):
+        '''
+        Reset the serial device using the DTR lines
+        '''
+        with serial.Serial(DEFAULT_SERIAL_DEVICE, 57600, timeout=1) as stream:
+            stream.setDTR(False)
+            time.sleep(0.022)
+            stream.setDTR(True)
+            time.sleep(0.022)
+
     def _sendData(self, value):
         with serial.Serial(DEFAULT_SERIAL_DEVICE, 57600, timeout=1) as stream:
             discard = stream.readline()
@@ -118,10 +131,10 @@ class Arduino(object):
 
 
 class Heater(object):
-    def __init__(self, name, log, conf, influx):
+    def __init__(self, name, log, conf, influx, arduino):
         self.Log = log
         self.Name = name
-        self.Arduino = Arduino()
+        self.Arduino = arduino
         self.Config = conf
         self.UpdateTime = None
         self.Influx = influx
@@ -303,14 +316,14 @@ class Heater(object):
 
 
 class TempSensor(object):
-    def __init__(self, pin, influx, log):
+    def __init__(self, pin, influx, arduino, log):
         self.Pin = pin
         self.Influx = influx
         self.Log = log
         self.Last = 75.0
         self.LastReading = datetime.datetime.now()
 
-        self.Arduino = Arduino()
+        self.Arduino = arduino
 
     @property
     def fahrenheit(self):
@@ -573,14 +586,17 @@ def main():
     log.info("%s - Initializing Influx"%(datetime.datetime.now()))
     influx = InfluxWrapper(log, influx_config, config['site'])
 
+    log.info("%s - Initializing Arduino"%(datetime.datetime.now()))
+    arduino = Arduino()
+
     log.info("%s - Setting up heater objects"%(datetime.datetime.now()))
     heaters = []
     for name, conf in config["heaters"].items():
-        heaters.append(Heater(name, log, conf, influx))
+        heaters.append(Heater(name, log, conf, influx, arduino))
 
 
     log.info("%s - Initializing Temp Sensor"%(datetime.datetime.now()))
-    temp_sensor = TempSensor(config["dht22"]["pin"], influx, log)
+    temp_sensor = TempSensor(config["dht22"]["pin"], influx, arduino, log)
 
     controller = HeatController(log, heaters, temp_sensor, influx, config)
 
