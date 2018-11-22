@@ -326,7 +326,10 @@ class TempSensor(object):
 
     @property
     def fahrenheit(self):
-        t = self.Arduino.getTemp()
+        t1 = self.Arduino.getTemp()
+        time.sleep(2)
+        t2 = self.Arduino.getTemp()
+        t = t2 if t2 else t1
         if t:
             try:
                 self.Last = float(t)
