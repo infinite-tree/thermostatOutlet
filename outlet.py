@@ -90,7 +90,7 @@ class Arduino(object):
             while len(discard) > 0:
                 discard = stream.readline()
 
-            stream.write("%s\n"%(value))
+            stream.write("%s\n"%(str(value)))
             for x in range(3):
                 response = stream.readline()
                 if len(response) > 0:
