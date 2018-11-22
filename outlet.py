@@ -344,7 +344,7 @@ class TempSensor(object):
         else:
             self.Log.error("%s DHT timeout"%(datetime.datetime.now()))
             self.Influx.sendMeasurement("working_dht22", "none", 0)
-            temp = self.Influx.queryFallbackTemp()
+            temp = self.queryFallbackTemp()
             if temp:
                 self.Last = temp
 
