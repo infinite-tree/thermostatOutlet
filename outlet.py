@@ -21,7 +21,7 @@ LOG_FILE = "~/logs/thermostat_outlet.log"
 CONFIG_FILE = os.path.expanduser("~/.outlet.config")
 INFLUXDB_CONFIG_FILE = os.path.expanduser("~/.influxdb.config")
 
-MULTI_LOOPS = 3
+MULTI_LOOPS = 2
 ON_PAUSE = 20
 OFF_PAUSE = 5
 
