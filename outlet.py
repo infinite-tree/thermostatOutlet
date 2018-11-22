@@ -334,6 +334,9 @@ class TempSensor(object):
             except:
                 self.Log.error("%s - DHT read error: %s"%(datetime.datetime.now(), t))
                 self.Influx.sendMeasurement("working_dht22", "none", 0)
+                temp = self.Influx.queryFallbackTemp()
+                if temp:
+                    self.Last = temp
                 return self.Last
 
             self.Influx.sendMeasurement("working_dht22", "none", 1)
@@ -342,7 +345,17 @@ class TempSensor(object):
         else:
             self.Log.error("%s DHT timeout"%(datetime.datetime.now()))
             self.Influx.sendMeasurement("working_dht22", "none", 0)
+            temp = self.Influx.queryFallbackTemp()
+            if temp:
+                self.Last = temp
 
+        return self.Last
+
+    def queryFallbackTemp(self):
+        result = self.Influx.query('''SELECT "value" FROM "temperature_fahrenheit" WHERE ("location" = 'Greenhouse') AND time >= now() - 5m ORDER by time DESC LIMIT 1''')
+        points = [p for p in result]
+        if len(points) > 0:
+            return points[0][0]['value']
         return self.Last
 
 
@@ -412,6 +425,9 @@ class InfluxWrapper(object):
         if len(self.Points) >= self.MaxPoints or (now - self.LastSent).seconds >= self.Interval:
             return self.writePoints()
         return True
+
+    def query(self, *args, **kwargs):
+        return self.Influx.query(*args, **kwargs)
 
 
 class HeatController(object):
