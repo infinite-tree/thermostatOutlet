@@ -336,7 +336,7 @@ class TempSensor(object):
             except:
                 self.Log.error("%s - DHT read error: %s"%(datetime.datetime.now(), t))
                 self.Influx.sendMeasurement("working_dht22", "none", 0)
-                temp = self.Influx.queryFallbackTemp()
+                temp = self.queryFallbackTemp()
                 if temp:
                     self.Last = temp
                 return self.Last
