@@ -109,7 +109,7 @@ class Arduino(object):
         return False
 
     def outletFeedback(self, feedback):
-        if self._sendData(feedback) == '1':
+        if self._sendData(feedback) == '0':
             return True
         return False
 
