@@ -7,7 +7,7 @@ RUNNING=$?
 
 if [ $RUNNING -ne 0 ]; then
 	echo "Backing up"
-	duply heaters backup
+	timeout 60m "duply heaters backup"
 	killall -r "*duply*"
 	killall -r "*duplicity*"
 else
