@@ -619,6 +619,12 @@ def main():
     if os.path.isfile(lock_file):
         os.remove(lock_file)
 
+    if not os.path.isfile(os.path.expanduser("~/.rebooted")):
+        with open(os.path.expanduser("~/.rebooted"), "w") as f:
+            f.write("True\n")
+
+        subprocess.call("sudo reboot", shell=True)
+
     # Setup influxdb
     with open(INFLUXDB_CONFIG_FILE) as f:
         influx_config = json.loads(f.read())
