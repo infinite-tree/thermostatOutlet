@@ -31,7 +31,7 @@ HEATER_BALANCE = 20
 CYCLE_COUNT = 2
 CYCLE_DELAY = datetime.timedelta(minutes=18)
 LOOP_DELAY = datetime.timedelta(minutes=5)
-FAILURE_THRESHOLD = datetime.timedelta(minutes=10)
+FAILURE_THRESHOLD = datetime.timedelta(minutes=3)
 
 
 config = {
