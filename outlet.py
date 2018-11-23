@@ -31,6 +31,7 @@ HEATER_BALANCE = 20
 CYCLE_COUNT = 2
 CYCLE_DELAY = datetime.timedelta(minutes=18)
 LOOP_DELAY = datetime.timedelta(minutes=5)
+FAILURE_THRESHOLD = datetime.timedelta(minutes=10)
 
 
 config = {
@@ -95,7 +96,6 @@ class Arduino(object):
             time.sleep(0.022)
             stream.setDTR(True)
             time.sleep(0.022)
-
 
     def _sendData(self, value):
         for y in range(3):
@@ -438,11 +438,14 @@ class InfluxWrapper(object):
 
 
 class HeatController(object):
-    def __init__(self, log, heaters, temp_sensor, influx, config):
+    def __init__(self, log, heaters, temp_sensor, influx, arduino, config):
         self.Log = log
         self.Heaters = heaters
         self.TempSensor = temp_sensor
         self.Influx = influx
+        self.Arduino = arduino
+
+        self.OutletFails = {}
 
         self.Setpoint = config["temp_setpoint"]
         self.Tolerance = config["temp_tolerance"]
@@ -566,7 +569,25 @@ class HeatController(object):
             # Check outlets for running
             for heater in self.Heaters:
                 if not heater.outletCheck():
+                    self.OutletFails.setdefault(heater.Name, datetime.datetime.now())
                     self.Log.error("%s - %s outlet is not functioning"%(datetime.datetime.now(), heater.Name))
+                else:
+                    if heater.Name in self.OutletFails:
+                        del self.OutletFails[heater.Name]
+
+            # if any outlets have failed for too long, reset the arduino
+            now = datetime.datetime.now()
+            for name, t in self.OutletFails.items():
+                if now - t > FAILURE_THRESHOLD:
+                    self.Arduino._resetSerial()
+                    for heater in self.Heaters:
+                        if heater.Running:
+                            heater._on()
+                        else:
+                            heater._off()
+
+                    self.OutletFails = {}
+                    break
 
             # TODO: Add a reset button or something to reset runtime when re-fueled
             pm3 = datetime.time(15, 0, 0)
@@ -625,7 +646,7 @@ def main():
     log.info("%s - Initializing Temp Sensor"%(datetime.datetime.now()))
     temp_sensor = TempSensor(config["dht22"]["pin"], influx, arduino, log)
 
-    controller = HeatController(log, heaters, temp_sensor, influx, config)
+    controller = HeatController(log, heaters, temp_sensor, influx, arduino, config)
 
     # import pdb
     # pdb.set_trace()
