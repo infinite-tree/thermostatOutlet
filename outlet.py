@@ -145,6 +145,7 @@ class Heater(object):
 
         self._off()
 
+
     def startup(self):
         self.Log.info("%s Should be running? %s"%(self.Name, self.Running))
         if self.Config["running"]:
