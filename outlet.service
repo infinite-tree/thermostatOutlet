@@ -7,6 +7,7 @@
  ExecStart=/usr/bin/python /home/pi/thermostatOutlet/outlet.py
  User=pi
  Group=pi
+ Restart=always
 
  [Install]
  WantedBy=multi-user.target

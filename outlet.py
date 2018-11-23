@@ -576,19 +576,12 @@ class HeatController(object):
                     if heater.Name in self.OutletFails:
                         del self.OutletFails[heater.Name]
 
-            # if any outlets have failed for too long, reset the arduino
+            # if any outlets have failed for too long, restart the process
             now = datetime.datetime.now()
             for name, t in self.OutletFails.items():
                 if now - t > FAILURE_THRESHOLD:
-                    self.Arduino._resetSerial()
-                    for heater in self.Heaters:
-                        if heater.Running:
-                            heater._on()
-                        else:
-                            heater._off()
-
-                    self.OutletFails = {}
-                    break
+                    self.Log.error("%s - Restarting process"%(now))
+                    return
 
             # TODO: Add a reset button or something to reset runtime when re-fueled
             pm3 = datetime.time(15, 0, 0)
