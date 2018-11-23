@@ -601,6 +601,15 @@ class HeatController(object):
             # Update runtime of heaters
             for heater in self.Heaters:
                 heater.updateRuntime()
+
+
+            # Force everything into the state it should be
+            for heater in self.Heaters:
+                if heater.Running:
+                    heater._on()
+                else:
+                    heater._off()
+
             time.sleep(60)
 
 
@@ -614,16 +623,6 @@ def main():
     log.addHandler(handler)
     log.addHandler(logging.StreamHandler())
     log.info("%s - THERMOSTAT OUTLET STARTED"%(datetime.datetime.now()))
-
-    lock_file = os.path.expanduser("~/.cache/duplicity/duply_heaters/lockfile.lock")
-    if os.path.isfile(lock_file):
-        os.remove(lock_file)
-
-    if not os.path.isfile(os.path.expanduser("~/.rebooted")):
-        with open(os.path.expanduser("~/.rebooted"), "w") as f:
-            f.write("True\n")
-
-        subprocess.call("sudo reboot", shell=True)
 
     # Setup influxdb
     with open(INFLUXDB_CONFIG_FILE) as f:
