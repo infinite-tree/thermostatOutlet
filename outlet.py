@@ -4,6 +4,7 @@
 Script to turn on/off outlets
 """
 import datetime
+import glob
 import json
 import logging
 import logging.handlers
@@ -84,22 +85,29 @@ def writeState(name, conf):
 
 
 class Arduino(object):
-    def __init__(self):
-        self._resetSerial()
+    def __init__(self, log):
+        self.Log = log
+        self._newSerial()
 
-    def _resetSerial(self):
+    def _newSerial(self):
         '''
         Reset the serial device using the DTR lines
         '''
-        with serial.Serial(DEFAULT_SERIAL_DEVICE, 57600, timeout=1) as stream:
-            stream.setDTR(False)
-            time.sleep(0.022)
-            stream.setDTR(True)
-            time.sleep(0.022)
+        serial_devices = glob.glob("/dev/ttyUSB*")
+        if len(serial_devices) < 1:
+            self.Log.error("NO Serial devices detected. Restarting ...")
+            subprocess.call("sudo reboot", shell=True)
+
+        self.SerialDevice = sorted(serial_devices)[-1]
+
+    def resetSerial(self):
+        # FIXME: match device to the actual
+        subprocess.call("sudo ./usbreset /dev/bus/usb/001/002", shell=True, cwd=os.path.expanduser("~/"))
+        self._newSerial()
 
     def _sendData(self, value):
-        for y in range(3):
-            with serial.Serial(DEFAULT_SERIAL_DEVICE, 57600, timeout=1) as stream:
+        try:
+            with serial.Serial(self.SerialDevice, 57600, timeout=1) as stream:
                 discard = stream.readline()
                 while len(discard) > 0:
                     discard = stream.readline()
@@ -110,10 +118,14 @@ class Arduino(object):
                     if len(response) > 0:
                         return response.strip()
 
-            # got no response
-            self._resetSerial()
+                # got no response
+                self.Log.error("Serial not responding")
+                self.resetSerial()
+        except Exception as e:
+            self.Log.error("Serial exception: %s"%(e), exc_info=1)
+            self.resetSerial()
 
-        return None
+            return None
 
     def outletOn(self, outlet):
         if self._sendData(outlet.upper()) == outlet.upper():
@@ -144,7 +156,6 @@ class Heater(object):
         self.Influx = influx
 
         self._off()
-
 
     def startup(self):
         self.Log.info("%s Should be running? %s"%(self.Name, self.Running))
@@ -580,8 +591,8 @@ class HeatController(object):
             now = datetime.datetime.now()
             for name, t in self.OutletFails.items():
                 if now - t > FAILURE_THRESHOLD:
-                    self.Log.error("%s - Restarting process"%(now))
-                    return
+                    self.Log.error("%s - Restarting serial"%(now))
+                    self.Arduino.resetSerial()
 
             # TODO: Add a reset button or something to reset runtime when re-fueled
             pm3 = datetime.time(15, 0, 0)
@@ -647,7 +658,7 @@ def main():
     influx = InfluxWrapper(log, influx_config, config['site'])
 
     log.info("%s - Initializing Arduino"%(datetime.datetime.now()))
-    arduino = Arduino()
+    arduino = Arduino(log)
 
     log.info("%s - Setting up heater objects"%(datetime.datetime.now()))
     heaters = []
