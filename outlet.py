@@ -103,6 +103,7 @@ class Arduino(object):
     def resetSerial(self):
         # FIXME: match device to the actual
         subprocess.call("sudo ./usbreset /dev/bus/usb/001/002", shell=True, cwd=os.path.expanduser("~/"))
+        time.sleep(2)
         self._newSerial()
 
     def _sendData(self, value):
@@ -112,7 +113,7 @@ class Arduino(object):
                 while len(discard) > 0:
                     discard = stream.readline()
 
-                stream.write("%s\n"%(str(value)))
+                stream.write((str(value)))
                 for x in range(3):
                     response = stream.readline()
                     if len(response) > 0:
