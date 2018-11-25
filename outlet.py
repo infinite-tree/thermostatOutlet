@@ -99,6 +99,18 @@ class Arduino(object):
             subprocess.call("sudo reboot", shell=True)
 
         self.SerialDevice = sorted(serial_devices)[-1]
+        with serial.Serial(self.SerialDevice, 57600, timeout=1) as stream:
+            for x in range(5):
+                stream.write("H")
+                if strea.readline().strip() == "H":
+                    return
+                else:
+                    time.sleep(1)
+
+            stream.readline()
+
+        # still not reset
+        self.Log.error("Failed to reset Serial!!!")
 
     def resetSerial(self):
         # FIXME: match device to the actual

@@ -82,6 +82,10 @@ void loop() {
     if (Serial.available()) {
         char code = Serial.read();
         switch(code) {
+            case 'H':
+                Serial.println("H");
+                break;
+
             case 'F':
                 readDHT22();
                 break;
