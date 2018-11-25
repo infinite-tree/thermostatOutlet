@@ -605,6 +605,17 @@ class HeatController(object):
 
             time.sleep(60)
 
+def reboot(log):
+    if os.path.isfile(os.path.expanduser("~/.reboot")):
+        os.remove(os.path.expanduser("~/.reboot"))
+
+    if not os.path.isfile(os.path.expanduser("~/.reboot2")):
+        with open(os.path.expanduser("~/.reboot2"), "w") as f:
+            f.write("%s\n"%(datetime.datetime.now()))
+
+        log.error("############ REBOOTING ###########")
+        subprocess.call("sudo reboot", shell=True)
+
 
 def main():
     log = logging.getLogger('OutletThermostatLogger')
@@ -616,6 +627,8 @@ def main():
     log.addHandler(handler)
     log.addHandler(logging.StreamHandler())
     log.info("%s - THERMOSTAT OUTLET STARTED"%(datetime.datetime.now()))
+
+    reboot()
 
     # Setup influxdb
     with open(INFLUXDB_CONFIG_FILE) as f:
