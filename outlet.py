@@ -87,32 +87,42 @@ def writeState(name, conf):
 class Arduino(object):
     def __init__(self, log):
         self.Log = log
+        self.Stream = None
         self._newSerial()
 
     def _newSerial(self):
         '''
         Reset the serial device using the DTR lines
         '''
+        try:
+            self.Stream.close()
+        except:
+            pass
+
         serial_devices = glob.glob("/dev/ttyUSB*")
         if len(serial_devices) < 1:
             self.Log.error("NO Serial devices detected. Restarting ...")
             subprocess.call("sudo reboot", shell=True)
 
         self.SerialDevice = sorted(serial_devices)[-1]
-        with serial.Serial(self.SerialDevice, 57600, timeout=1) as stream:
-            for x in range(5):
-                stream.write("H")
-                if strea.readline().strip() == "H":
-                    return
-                else:
-                    time.sleep(1)
+        self.Stream = serial.Serial(self.SerialDevice, 57600, timeout=1)
 
-            stream.readline()
+        for x in range(5):
+            self.Stream.write("H")
+            if self.Stream.readline().strip() == "H":
+                return
+            else:
+                time.sleep(1)
 
         # still not reset
         self.Log.error("Failed to reset Serial!!!")
 
     def resetSerial(self):
+        try:
+            self.Stream.close()
+        except:
+            pass
+
         # FIXME: match device to the actual
         subprocess.call("sudo ./usbreset /dev/bus/usb/001/002", shell=True, cwd=os.path.expanduser("~/"))
         time.sleep(2)
@@ -120,14 +130,13 @@ class Arduino(object):
 
     def _sendData(self, value):
         try:
-            with serial.Serial(self.SerialDevice, 57600, timeout=1) as stream:
-                discard = stream.readline()
+                discard = self.Stream.readline()
                 while len(discard) > 0:
-                    discard = stream.readline()
+                    discard = self.Stream.readline()
 
-                stream.write((str(value)))
                 for x in range(3):
-                    response = stream.readline()
+                    self.Stream.write((str(value)))
+                    response = self.Stream.readline()
                     if len(response) > 0:
                         return response.strip()
 
@@ -393,7 +402,6 @@ class TempSensor(object):
 
 class InfluxWrapper(object):
     def __init__(self, log, influx_config, site_config):
-        # import pdb; pdb.set_trace()
         self.Influx = InfluxDBClient(influx_config['host'],
                                      influx_config['port'],
                                      influx_config['login'],
