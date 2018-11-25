@@ -628,7 +628,7 @@ def main():
     log.addHandler(logging.StreamHandler())
     log.info("%s - THERMOSTAT OUTLET STARTED"%(datetime.datetime.now()))
 
-    reboot()
+    reboot(log)
 
     # Setup influxdb
     with open(INFLUXDB_CONFIG_FILE) as f:
