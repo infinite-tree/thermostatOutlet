@@ -577,6 +577,10 @@ class HeatController(object):
                     if heater.Running:
                         heater.off()
 
+    def refueled(self):
+        self.Log.info("%s - Resetting fuel levels"%(datetime.datetime.now()))
+        for heater in self.Heaters:
+            heater.Used = 0
 
     def run(self):
         prev_loop = datetime.datetime.now() - LOOP_DELAY
@@ -619,9 +623,7 @@ class HeatController(object):
             pm3 = datetime.time(15, 0, 0)
             pm302 = datetime.time(15, 2, 0)
             if now.time() > pm3 and now.time() < pm302:
-                self.Log.info("%s - Reseting fuel levels"%(now))
-                for heater in self.Heaters:
-                    heater.Used = 0
+                self.refueled()
 
             # Update runtime of heaters
             for heater in self.Heaters:
@@ -691,6 +693,10 @@ def main():
     temp_sensor = TempSensor(config["dht22"]["pin"], influx, arduino, log)
 
     controller = HeatController(log, heaters, temp_sensor, influx, arduino, config)
+    if not os.path.isfile(os.path.expanduser("~/.refueled")):
+        with open(os.path.expanduser("~/.refueled"), "w") as f:
+            f.write("%s\n"%(datetime.datetime.now()))
+        controller.refueled()
 
     # import pdb
     # pdb.set_trace()
