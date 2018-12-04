@@ -480,8 +480,13 @@ class HeatController(object):
 
         self.OutletFails = {}
 
-        self.Setpoint = config["temp_setpoint"]
-        self.Tolerance = config["temp_tolerance"]
+        # self.Setpoint = config["temp_setpoint"]
+        # self.Tolerance = config["temp_tolerance"]
+
+        # FIXME: Baby its cold outside
+        # Lowering the setpoint to conserve fuel.
+        self.Setpoint = 58.0
+        self.Tolerance = 3.0
 
     def startup(self):
         # Startup the heaters after everything has been initialized
