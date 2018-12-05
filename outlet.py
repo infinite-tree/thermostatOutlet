@@ -623,7 +623,7 @@ class HeatController(object):
             # TODO: Add a reset button or something to reset runtime when re-fueled
             pm3 = datetime.time(15, 0, 0)
             pm352 = datetime.time(15, 52, 0)
-            if now.time() > pm3 and now.time() < pm302:
+            if now.time() > pm3 and now.time() < pm352:
                 self.refueled()
 
             # Update runtime of heaters
