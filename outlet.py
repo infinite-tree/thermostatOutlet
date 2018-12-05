@@ -697,9 +697,7 @@ def main():
     if not os.path.isfile(os.path.expanduser("~/.refueled2")):
         with open(os.path.expanduser("~/.refueled2"), "w") as f:
             f.write("%s\n"%(datetime.datetime.now()))
-        # controller.refueled()
-        for heater in heaters:
-            heater.Used = 180
+        controller.refueled()
 
     # import pdb
     # pdb.set_trace()
