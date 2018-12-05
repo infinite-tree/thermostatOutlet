@@ -138,7 +138,7 @@ class Arduino(object):
                     self.Stream.write((str(value)))
                     response = self.Stream.readline()
                     if len(response) > 0:
-                        return response.strip()
+                        return str(response.strip())
 
                 # got no response
                 self.Log.error("Serial not responding")
@@ -150,12 +150,12 @@ class Arduino(object):
             return None
 
     def outletOn(self, outlet):
-        if self._sendData(outlet.upper()) == outlet.upper():
+        if self._sendData(outlet.upper()) == str(outlet.upper()):
             return True
         return False
 
     def outletOff(self, outlet):
-        if self._sendData(outlet.lower()) == outlet.lower():
+        if self._sendData(outlet.lower()) == str(outlet.lower()):
             return True
         return False
 
