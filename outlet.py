@@ -44,7 +44,7 @@ config = {
             "cycle": False,
             "running": False,
             "capacity": int(10*60),
-            "used": 0.0
+            "used": 180.0
         },
         "heater_b": {
             "outlet": 'b',
@@ -53,7 +53,7 @@ config = {
             "cycle": True,
             "running": False,
             "capacity": int(8.5*60),
-            "used": 0.0
+            "used": 180.0
         },
         "heater_c": {
             "outlet": 'c',
@@ -62,11 +62,11 @@ config = {
             "cycle": False,
             "running": False,
             "capacity": int(10.45*60),
-            "used": 0.0
+            "used": 180.0
         }
     },
-    "temp_setpoint": 62.0,
-    "temp_tolerance": 5.0,
+    "temp_setpoint": 60.0,
+    "temp_tolerance": 3.0,
     "dht22": {
         "pin": 21
     },
@@ -622,7 +622,7 @@ class HeatController(object):
 
             # TODO: Add a reset button or something to reset runtime when re-fueled
             pm3 = datetime.time(15, 0, 0)
-            pm302 = datetime.time(15, 2, 0)
+            pm352 = datetime.time(15, 52, 0)
             if now.time() > pm3 and now.time() < pm302:
                 self.refueled()
 
@@ -694,10 +694,12 @@ def main():
     temp_sensor = TempSensor(config["dht22"]["pin"], influx, arduino, log)
 
     controller = HeatController(log, heaters, temp_sensor, influx, arduino, config)
-    if not os.path.isfile(os.path.expanduser("~/.refueled")):
-        with open(os.path.expanduser("~/.refueled"), "w") as f:
+    if not os.path.isfile(os.path.expanduser("~/.refueled2")):
+        with open(os.path.expanduser("~/.refueled2"), "w") as f:
             f.write("%s\n"%(datetime.datetime.now()))
-        controller.refueled()
+        # controller.refueled()
+        for heater in heaters:
+            heater.Used = 180
 
     # import pdb
     # pdb.set_trace()
