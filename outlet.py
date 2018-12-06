@@ -694,10 +694,17 @@ def main():
     temp_sensor = TempSensor(config["dht22"]["pin"], influx, arduino, log)
 
     controller = HeatController(log, heaters, temp_sensor, influx, arduino, config)
-    if not os.path.isfile(os.path.expanduser("~/.refueled2")):
-        with open(os.path.expanduser("~/.refueled2"), "w") as f:
+    if not os.path.isfile(os.path.expanduser("~/.refueled3")):
+        with open(os.path.expanduser("~/.refueled3"), "w") as f:
             f.write("%s\n"%(datetime.datetime.now()))
-        controller.refueled()
+        # controller.refueled()
+        for heater in heaters:
+            if heater.Name == "heater_c":
+                heater.Used = 150.0
+            elif heater.Name == "heater_a":
+                heater.Used = 200.0
+            else:
+                heater.Used = 110.0
 
     # import pdb
     # pdb.set_trace()
