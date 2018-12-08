@@ -41,10 +41,10 @@ config = {
             "outlet": 'a',
             "feedback": '1',
             "multistart": False,
-            "cycle": False,
+            "cycle": True,
             "running": False,
             "capacity": int(10*60),
-            "used": 180.0
+            "used": 0.0
         },
         "heater_b": {
             "outlet": 'b',
@@ -53,16 +53,16 @@ config = {
             "cycle": True,
             "running": False,
             "capacity": int(8.5*60),
-            "used": 180.0
+            "used": 0.0
         },
         "heater_c": {
             "outlet": 'c',
             "feedback": '3',
-            "multistart": True,
-            "cycle": False,
+            "multistart": False,
+            "cycle": True,
             "running": False,
-            "capacity": int(10.45*60),
-            "used": 180.0
+            "capacity": int(10*60),
+            "used": 0.0
         }
     },
     "temp_setpoint": 60.0,
