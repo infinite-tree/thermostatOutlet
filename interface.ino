@@ -70,8 +70,7 @@ void setup() {
     digitalWrite(DHT22_POWER, HIGH);
 
     pinMode(REFUEL_BTN, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(REFUEL_BTN), refueled, LOW);
-    REFUEL = 'r';
+    attachInterrupt(digitalPinToInterrupt(REFUEL_BTN), refueled, FALLING);
 
     pinMode(OUTLET_A, OUTPUT);
     pinMode(OUTLET_B, OUTPUT);
@@ -86,6 +85,9 @@ void setup() {
     pinMode(FEEDBACK_C, INPUT);
 
     Serial.begin(57600);
+
+    delay(200);
+    REFUEL = 'r';
 
 }
 
@@ -141,6 +143,10 @@ void loop() {
                 break;
             case '3':
                 feedback(FEEDBACK_C);
+                break;
+
+            default:
+            Serial.println('E');
                 break;
         }
     }

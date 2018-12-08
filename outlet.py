@@ -286,7 +286,8 @@ class Heater(object):
         self.Influx.sendMeasurement("running_heater", self.Name, running)
         if self.UpdateTime is not None:
             now = datetime.datetime.now()
-            self.Used += (now - self.UpdateTime).seconds/60.0
+            delta = (now - self.UpdateTime).seconds/60.0
+            self.Used += int(delta)
             self.UpdateTime = now
 
             if self.RemainingTime <= 0:
@@ -706,14 +707,7 @@ def main():
     if not os.path.isfile(os.path.expanduser("~/.refueled3")):
         with open(os.path.expanduser("~/.refueled3"), "w") as f:
             f.write("%s\n"%(datetime.datetime.now()))
-        # controller.refueled()
-        for heater in heaters:
-            if heater.Name == "heater_c":
-                heater.Used = 150.0
-            elif heater.Name == "heater_a":
-                heater.Used = 200.0
-            else:
-                heater.Used = 110.0
+        controller.refueled()
 
     # import pdb
     # pdb.set_trace()
