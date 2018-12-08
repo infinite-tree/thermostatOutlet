@@ -167,6 +167,9 @@ class Arduino(object):
     def getTemp(self):
         return self._sendData('F')
 
+    def refuelCheck(self):
+        return self._sendData('R') == 'R'
+
 
 class Heater(object):
     def __init__(self, name, log, conf, influx, arduino):
@@ -583,6 +586,17 @@ class HeatController(object):
         for heater in self.Heaters:
             heater.Used = 0
 
+    def refuelCheck(self, length):
+        start = datetime.datetime.now()
+        while True:
+            if self.Arduino.refuelCheck():
+                self.refueled()
+
+            time.sleep(1)
+            now = datetime.datetime.now()
+            if (now - start).seconds >= length:
+                return
+
     def run(self):
         prev_loop = datetime.datetime.now() - LOOP_DELAY
         prev_cycle = datetime.datetime.now()
@@ -620,12 +634,6 @@ class HeatController(object):
                     self.Log.error("%s - Restarting serial"%(now))
                     self.Arduino.resetSerial()
 
-            # TODO: Add a reset button or something to reset runtime when re-fueled
-            pm3 = datetime.time(15, 0, 0)
-            pm352 = datetime.time(15, 52, 0)
-            if now.time() > pm3 and now.time() < pm352:
-                self.refueled()
-
             # Update runtime of heaters
             for heater in self.Heaters:
                 heater.updateRuntime()
@@ -638,7 +646,7 @@ class HeatController(object):
                 else:
                     heater._off()
 
-            time.sleep(60)
+            self.refuelCheck(60)
 
 def reboot(log):
     if os.path.isfile(os.path.expanduser("~/.reboot")):
