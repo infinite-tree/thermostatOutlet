@@ -61,16 +61,12 @@ void feedback(uint8_t pin) {
     Serial.println(value);
 }
 
-void refueled() {
-    REFUEL = 'R';
-}
 
 void setup() {
     pinMode(DHT22_POWER, OUTPUT);
     digitalWrite(DHT22_POWER, HIGH);
 
-    pinMode(REFUEL_BTN, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(REFUEL_BTN), refueled, FALLING);
+    pinMode(REFUEL_BTN, INPUT);
 
     pinMode(OUTLET_A, OUTPUT);
     pinMode(OUTLET_B, OUTPUT);
@@ -86,9 +82,7 @@ void setup() {
 
     Serial.begin(57600);
 
-    delay(200);
     REFUEL = 'r';
-
 }
 
 void loop() {
@@ -150,5 +144,11 @@ void loop() {
                 break;
         }
     }
-    delay(100);
+
+    // There is too much line noise for external interrupts,
+    // but this is surprisingly stable
+    if (digitalRead(REFUEL_BTN) == HIGH) {
+        REFUEL = 'R';
+    }
+    delay(10);
 }
