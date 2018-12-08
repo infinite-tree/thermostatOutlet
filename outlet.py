@@ -591,8 +591,9 @@ class HeatController(object):
         while True:
             if self.Arduino.refuelCheck():
                 self.refueled()
+                return
 
-            time.sleep(1)
+            time.sleep(5)
             now = datetime.datetime.now()
             if (now - start).seconds >= length:
                 return
