@@ -16,8 +16,11 @@
 #define FEEDBACK_B          8
 #define FEEDBACK_C          9
 
+#define REFUEL_BTN          2
+
 dht DHT;
 
+char REFUEL = 'r';
 
 float fahrenheit(double celsius) {
   return (float) celsius * 1.8 + 32;
@@ -58,9 +61,16 @@ void feedback(uint8_t pin) {
     Serial.println(value);
 }
 
+void refueled() {
+    REFUEL = 'R';
+}
+
 void setup() {
     pinMode(DHT22_POWER, OUTPUT);
     digitalWrite(DHT22_POWER, HIGH);
+
+    pinMode(REFUEL_BTN, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(REFUEL_BTN), refueled, LOW);
 
     pinMode(OUTLET_A, OUTPUT);
     pinMode(OUTLET_B, OUTPUT);
@@ -84,6 +94,11 @@ void loop() {
         switch(code) {
             case 'H':
                 Serial.println("H");
+                break;
+
+            case 'R':
+                Serial.println(REFUEL);
+                REFUEL = 'r';
                 break;
 
             case 'F':
