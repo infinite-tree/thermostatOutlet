@@ -146,7 +146,7 @@ void loop() {
                 break;
 
             default:
-            Serial.println('E');
+                Serial.println('E');
                 break;
         }
     }
