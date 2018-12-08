@@ -20,7 +20,7 @@
 
 dht DHT;
 
-char REFUEL = 'r';
+volatile char REFUEL = 'r';
 
 float fahrenheit(double celsius) {
   return (float) celsius * 1.8 + 32;
@@ -71,6 +71,7 @@ void setup() {
 
     pinMode(REFUEL_BTN, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(REFUEL_BTN), refueled, LOW);
+    REFUEL = 'r';
 
     pinMode(OUTLET_A, OUTPUT);
     pinMode(OUTLET_B, OUTPUT);
