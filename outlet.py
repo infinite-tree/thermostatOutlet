@@ -599,6 +599,10 @@ class HeatController(object):
             if (now - start).seconds >= length:
                 return
 
+    def updateRuntime(self):
+        for heater in self.Heaters:
+            heater.updateRuntime()
+
     def run(self):
         prev_loop = datetime.datetime.now() - LOOP_DELAY
         prev_cycle = datetime.datetime.now()
@@ -637,9 +641,7 @@ class HeatController(object):
                     self.Arduino.resetSerial()
 
             # Update runtime of heaters
-            for heater in self.Heaters:
-                heater.updateRuntime()
-
+            self.updateRuntime()
 
             # Force everything into the state it should be
             for heater in self.Heaters:

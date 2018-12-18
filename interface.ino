@@ -146,8 +146,17 @@ void loop() {
     }
 
     // There is too much line noise for external interrupts,
-    // but this is surprisingly stable
-    if (digitalRead(REFUEL_BTN) == HIGH) {
+    // but this is surprisingly stable. All 3 consecutive
+    // reads must be HIGH for the button to register pressed.
+    bool pressed = true;
+    for (uint8_t x=0; x<3;x++) {
+        if (digitalRead(REFUEL_BTN) == LOW) {
+            pressed = false;
+            break;
+        }
+        delay(2);
+    }
+    if (pressed) {
         REFUEL = 'R';
     }
     delay(10);
