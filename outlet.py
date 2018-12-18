@@ -108,8 +108,8 @@ class Arduino(object):
         self.Stream = serial.Serial(self.SerialDevice, 57600, timeout=1)
 
         for x in range(5):
-            self.Stream.write("H")
-            if self.Stream.readline().strip() == "H":
+            self.Stream.write("I")
+            if self.Stream.readline().strip() == "I":
                 return
             else:
                 time.sleep(1)
@@ -165,7 +165,18 @@ class Arduino(object):
         return False
 
     def getTemp(self):
-        return self._sendData('F')
+        f = self._sendData('F')
+        try:
+            return float(f)
+        except:
+            return f
+
+    def getHumidity(self):
+        h = self._sendData('H')
+        try:
+            return float(h)
+        except:
+            return h
 
     def refuelCheck(self):
         return self._sendData('R') == 'R'
@@ -363,32 +374,21 @@ class TempSensor(object):
         self.Influx = influx
         self.Log = log
         self.Last = 57.0
-        self.LastReading = datetime.datetime.now()
 
         self.Arduino = arduino
 
     @property
+    def humidity(self):
+        return self.Arduino.getHumidity()
+
+    @property
     def fahrenheit(self):
-        t1 = self.Arduino.getTemp()
-        time.sleep(2)
-        t2 = self.Arduino.getTemp()
-        t = t2 if t2 else t1
-        if t:
-            try:
-                self.Last = float(t)
-            except:
-                self.Log.error("%s - DHT read error: %s"%(datetime.datetime.now(), t))
-                self.Influx.sendMeasurement("working_dht22", "none", 0)
-                temp = self.queryFallbackTemp()
-                if temp:
-                    self.Last = temp
-                return self.Last
-
+        t = self.Arduino.getTemp()
+        if type(t) is float:
+            self.Last = t
             self.Influx.sendMeasurement("working_dht22", "none", 1)
-            self.LastReading = datetime.datetime.now()
-
         else:
-            self.Log.error("%s DHT timeout"%(datetime.datetime.now()))
+            self.Log.error("%s - DHT error: %s"%(datetime.datetime.now(), t))
             self.Influx.sendMeasurement("working_dht22", "none", 0)
             temp = self.queryFallbackTemp()
             if temp:
@@ -610,8 +610,10 @@ class HeatController(object):
         while True:
             now = datetime.datetime.now()
             temp = self.TempSensor.fahrenheit
-            self.Log.info("%s - Current Temp: %.1f"%(datetime.datetime.now(), temp))
-            self.Influx.sendMeasurement("temperature_fahrenheit", "none", float(temp))
+            humidity = self.TempSensor.humidity
+            self.Log.info("%s - Current Temp: %.1f, humidity: %.1f"%(datetime.datetime.now(), temp, humidity))
+            self.Influx.sendMeasurement("temperature_fahrenheit", "none", temp)
+            self.Influx.sendMeasurement("humidity_percentage", "none", humidity)
 
             # adjust running heaters
             if now - prev_loop > LOOP_DELAY:

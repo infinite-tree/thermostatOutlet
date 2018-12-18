@@ -18,9 +18,14 @@
 
 #define REFUEL_BTN          2
 
+#define DHT_READ_INTERVAL   2*1000
+
 dht DHT;
 
-volatile char REFUEL = 'r';
+char REFUEL = 'r';
+float TEMPERATURE;
+float HUMIDITY;
+uint32_t dhtTimer = 0;
 
 float fahrenheit(double celsius) {
   return (float) celsius * 1.8 + 32;
@@ -33,13 +38,12 @@ void resetDHT22() {
 }
 
 void readDHT22() {
-    float value = 0.0;
     int chk = DHT.read22(DHT22_PIN);
     switch (chk)
     {
         case DHTLIB_OK:
-            value = fahrenheit(DHT.temperature);
-            Serial.println(value);
+            TEMPERATURE = fahrenheit(DHT.temperature);
+            HUMIDITY = DHT.humidity;
             break;
         case DHTLIB_ERROR_CHECKSUM:
             Serial.println("DHT22 Checksum error,\t");
@@ -65,6 +69,7 @@ void feedback(uint8_t pin) {
 void setup() {
     pinMode(DHT22_POWER, OUTPUT);
     digitalWrite(DHT22_POWER, HIGH);
+    delay(50);
 
     pinMode(REFUEL_BTN, INPUT);
 
@@ -80,17 +85,22 @@ void setup() {
     pinMode(FEEDBACK_B, INPUT);
     pinMode(FEEDBACK_C, INPUT);
 
-    Serial.begin(57600);
-
+    readDHT22();
+    dhtTimer = millis();
     REFUEL = 'r';
+    Serial.begin(57600);
 }
 
 void loop() {
     if (Serial.available()) {
         char code = Serial.read();
         switch(code) {
+            case 'I':
+                Serial.println('I');
+                break;
+
             case 'H':
-                Serial.println("H");
+                Serial.println(HUMIDITY);
                 break;
 
             case 'R':
@@ -99,7 +109,7 @@ void loop() {
                 break;
 
             case 'F':
-                readDHT22();
+                Serial.println(TEMPERATURE);
                 break;
 
             // Outlet controls
@@ -160,4 +170,9 @@ void loop() {
         REFUEL = 'R';
     }
     delay(10);
+
+    if (millis() - dhtTimer > DHT_READ_INTERVAL) {
+        readDHT22();
+        dhtTimer = millis();
+    }
 }
