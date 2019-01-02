@@ -44,7 +44,7 @@ config = {
             "cycle": True,
             "running": False,
             "capacity": int(10*60),
-            "used": 0.0
+            "used": 110.0
         },
         "heater_b": {
             "outlet": 'b',
@@ -53,16 +53,16 @@ config = {
             "cycle": True,
             "running": False,
             "capacity": int(8.5*60),
-            "used": 0.0
+            "used": 115.0
         },
         "heater_c": {
             "outlet": 'c',
             "feedback": '3',
-            "multistart": False,
+            "multistart": True,
             "cycle": True,
             "running": False,
             "capacity": int(10*60),
-            "used": 0.0
+            "used": 110.0
         }
     },
     "temp_setpoint": 60.0,
@@ -708,10 +708,12 @@ def main():
     temp_sensor = TempSensor(config["dht22"]["pin"], influx, arduino, log)
 
     controller = HeatController(log, heaters, temp_sensor, influx, arduino, config)
-    if not os.path.isfile(os.path.expanduser("~/.refueled3")):
-        with open(os.path.expanduser("~/.refueled3"), "w") as f:
+    if not os.path.isfile(os.path.expanduser("~/.refueled4")):
+        with open(os.path.expanduser("~/.refueled4"), "w") as f:
             f.write("%s\n"%(datetime.datetime.now()))
-        controller.refueled()
+        # controller.refueled()
+        for heater in heaters:
+            heater.Used = 110
 
     # import pdb
     # pdb.set_trace()
