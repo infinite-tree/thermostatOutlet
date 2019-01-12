@@ -9,6 +9,7 @@ import json
 import logging
 import logging.handlers
 import os
+import pytz
 import serial
 import subprocess
 import sys
@@ -44,7 +45,7 @@ config = {
             "cycle": True,
             "running": False,
             "capacity": int(10*60),
-            "used": 110.0
+            "used": 0.0
         },
         "heater_b": {
             "outlet": 'b',
@@ -53,7 +54,7 @@ config = {
             "cycle": True,
             "running": False,
             "capacity": int(8.5*60),
-            "used": 115.0
+            "used": 0.0
         },
         "heater_c": {
             "outlet": 'c',
@@ -62,7 +63,7 @@ config = {
             "cycle": True,
             "running": False,
             "capacity": int(10*60),
-            "used": 110.0
+            "used": 0.0
         }
     },
     "temp_setpoint": 60.0,
@@ -82,6 +83,19 @@ def writeState(name, conf):
     config["heaters"][name] = conf
     with open(CONFIG_FILE, "w") as f:
         f.write(json.dumps(config, sort_keys=True, indent=4, separators=(',', ': ')))
+
+
+def getNextDatetime(hour):
+    # This function assumes local timezone which is currently hard coded
+    now = datetime.datetime.now(pytz.timezone('US/Pacific'))
+    next_time = datetime.time(hour, tzinfo=pytz.timezone('US/Pacific'))
+    if now.time() >= next_time:
+        # since we've already passed that time today, look at tomorrow
+        day = (now + datetime.timedelta(hours=24)).date()
+    else:
+        # still early enough that we are looking at today
+        day = now.date()
+    return datetime.datetime.combine(day, next_time)
 
 
 class Arduino(object):
@@ -390,17 +404,10 @@ class TempSensor(object):
         else:
             self.Log.error("%s - DHT error: %s"%(datetime.datetime.now(), t))
             self.Influx.sendMeasurement("working_dht22", "none", 0)
-            temp = self.queryFallbackTemp()
+            temp = self.Influx.queryCurrentTemp()
             if temp:
                 self.Last = temp
 
-        return self.Last
-
-    def queryFallbackTemp(self):
-        result = self.Influx.query('''SELECT "value" FROM "temperature_fahrenheit" WHERE ("location" = 'Greenhouse') AND time >= now() - 5m ORDER by time DESC LIMIT 1''')
-        points = [p for p in result]
-        if len(points) > 0:
-            return float(points[0][0]['value'])
         return self.Last
 
 
@@ -424,6 +431,19 @@ class InfluxWrapper(object):
     def getTime(self):
         now = datetime.datetime.utcnow()
         return now.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    def queryCurrentTemp(self):
+        result = self.Influx.query('''SELECT "value" FROM "temperature_fahrenheit" WHERE ("location" = 'Greenhouse') AND time >= now() - 5m ORDER by time DESC LIMIT 1''')
+        points = [p for p in result]
+        if len(points) > 0:
+            return float(points[0][0]['value'])
+        return None
+
+    def queryPreviousRuntime(self, hours_ago):
+        query = '''SELECT "value" FROM "remaining_runtime" WHERE ("controller" = '%s') AND time >= now() - %dh AND time <= now() - %dh GROUP BY "outlet" ORDER BY time DESC LIMIT 1'''
+        result = self.Influx.query(query%(self.Controller, hours_ago + 1, hours_ago))
+        points = [p for p in result]
+        return [p[0]['value'] for p in points]
 
     def writePoints(self):
         ret = None
@@ -603,6 +623,41 @@ class HeatController(object):
         for heater in self.Heaters:
             heater.updateRuntime()
 
+    def getPreviousAvgRuntime(self, hours_ago):
+        runtimes = self.Influx.queryPreviousRuntime(hours_ago)
+        return sum(runtimes)/len(runtimes)
+
+    def updateRuntimePrediction(self):
+        avg_runtime = sum([h.RemainingTime for h in self.Heaters])/len(self.Heaters)
+        prev_runtime = self.getPreviousAvgRuntime(2)
+        hourly = (prev_runtime - avg_runtime)/2.0
+        if hourly == 0:
+            heating_hours_available = 24
+        else:
+            heating_hours_available = avg_runtime/hourly
+
+        # There isn't a great way to alert on this metric, but seeing it seems
+        # useful
+        self.Influx.sendMeasurement("predicted_hours", "none", heating_hours_available)
+
+        # The alerting system can only check conditions at regular intervals
+        # (not at a specific schedule), so this metric needs to be something
+        # that is either stable over a 24hr period, or adjusted for the time
+        # period we care about
+
+        now = datetime.datetime.now(pytz.timezone('US/Pacific'))
+        # only send actionable predictions during the window of time where it
+        # matters (4pm - 9am)
+        afternoon = datetime.time(12+4, tzinfo=pytz.timezone('US/Pacific'))
+        end_time = datetime.time(9, tzinfo=pytz.timezone('US/Pacific'))
+        if now.time() > afternoon or now.time() < end_time:
+            morning = getNextDatetime(9)
+            hours_needed = (morning - now).seconds/3600.0
+            self.Influx.sendMeasurement("predicted_delta", "none", heating_hours_available - hours_needed)
+        else:
+            self.Influx.sendMeasurement("predicted_delta", "none", 0.0)
+
+
     def run(self):
         prev_loop = datetime.datetime.now() - LOOP_DELAY
         prev_cycle = datetime.datetime.now()
@@ -644,6 +699,7 @@ class HeatController(object):
 
             # Update runtime of heaters
             self.updateRuntime()
+            self.updateRuntimePrediction()
 
             # Force everything into the state it should be
             for heater in self.Heaters:
@@ -711,9 +767,7 @@ def main():
     if not os.path.isfile(os.path.expanduser("~/.refueled4")):
         with open(os.path.expanduser("~/.refueled4"), "w") as f:
             f.write("%s\n"%(datetime.datetime.now()))
-        # controller.refueled()
-        for heater in heaters:
-            heater.Used = 110
+        controller.refueled()
 
     # import pdb
     # pdb.set_trace()
