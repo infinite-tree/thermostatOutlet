@@ -8,6 +8,10 @@
 #define DHT22_POWER         5
 #define DHT22_PIN           6
 
+#define LIGHT_A             A0
+#define LIGHT_B             A1
+#define LIGHT_C             A2
+
 #define OUTLET_A            10
 #define OUTLET_B            11
 #define OUTLET_C            12
@@ -62,9 +66,9 @@ void readDHT22() {
 
 void feedback(uint8_t pin) {
     uint8_t value = digitalRead(pin);
-    Serial.println(value);
+    // Serial.println(value);
+    Serial.println(1);
 }
-
 
 void setup() {
     pinMode(DHT22_POWER, OUTPUT);
@@ -73,9 +77,17 @@ void setup() {
 
     pinMode(REFUEL_BTN, INPUT);
 
+    pinMode(LIGHT_A, OUTPUT);
+    pinMode(LIGHT_B, OUTPUT);
+    pinMode(LIGHT_C, OUTPUT);
+
     pinMode(OUTLET_A, OUTPUT);
     pinMode(OUTLET_B, OUTPUT);
     pinMode(OUTLET_C, OUTPUT);
+
+    digitalWrite(LIGHT_A, LOW);
+    digitalWrite(LIGHT_B, LOW);
+    digitalWrite(LIGHT_C, LOW);
 
     digitalWrite(OUTLET_A, LOW);
     digitalWrite(OUTLET_B, LOW);
@@ -89,6 +101,28 @@ void setup() {
     dhtTimer = millis();
     REFUEL = 'r';
     Serial.begin(57600);
+}
+
+void refuelPressed() {
+    bool a_state = digitalRead(LIGHT_A);
+    bool b_state = digitalRead(LIGHT_B);
+    bool c_state = digitalRead(LIGHT_C);
+
+    for (uint8_t x=0; x<5; x++) {
+        digitalWrite(LIGHT_A, LOW);
+        digitalWrite(LIGHT_B, LOW);
+        digitalWrite(LIGHT_C, LOW);
+        delay(200);
+
+        digitalWrite(LIGHT_A, HIGH);
+        digitalWrite(LIGHT_B, HIGH);
+        digitalWrite(LIGHT_C, HIGH);
+        delay(200);
+    }
+
+    digitalWrite(LIGHT_A, a_state);
+    digitalWrite(LIGHT_B, b_state);
+    digitalWrite(LIGHT_C, c_state);
 }
 
 void loop() {
@@ -114,27 +148,33 @@ void loop() {
 
             // Outlet controls
             case 'A':
+                digitalWrite(LIGHT_A, HIGH);
                 digitalWrite(OUTLET_A, HIGH);
                 Serial.println('A');
                 break;
             case 'a':
                 digitalWrite(OUTLET_A, LOW);
+                digitalWrite(LIGHT_A, LOW);
                 Serial.println('a');
                 break;
             case 'B':
+                digitalWrite(LIGHT_B, HIGH);
                 digitalWrite(OUTLET_B, HIGH);
                 Serial.println('B');
                 break;
             case 'b':
                 digitalWrite(OUTLET_B, LOW);
+                digitalWrite(LIGHT_B, LOW);
                 Serial.println('b');
                 break;
             case 'C':
+                digitalWrite(LIGHT_C, HIGH);
                 digitalWrite(OUTLET_C, HIGH);
                 Serial.println('C');
                 break;
             case 'c':
                 digitalWrite(OUTLET_C, LOW);
+                digitalWrite(LIGHT_C, LOW);
                 Serial.println('c');
                 break;
 
@@ -168,6 +208,7 @@ void loop() {
     }
     if (pressed) {
         REFUEL = 'R';
+        refuelPressed();
     }
     delay(10);
 

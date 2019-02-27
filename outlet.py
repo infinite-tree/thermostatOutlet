@@ -625,7 +625,9 @@ class HeatController(object):
 
     def getPreviousAvgRuntime(self, hours_ago):
         runtimes = self.Influx.queryPreviousRuntime(hours_ago)
-        return sum(runtimes)/len(runtimes)
+        if runtimes:
+            return sum(runtimes)/len(runtimes)
+        return 0
 
     def updateRuntimePrediction(self):
         avg_runtime = sum([h.RemainingTime for h in self.Heaters])/len(self.Heaters)
