@@ -298,10 +298,10 @@ class Heater(object):
             time.sleep(OFF_PAUSE)
 
     def outletCheck(self):
-        active = self.Arduino.outletFeedback(self.Feedback)
-        if self.Running and not active:
-            self.Influx.sendMeasurement("working_outlet", self.Name, 0)
-            return False
+        # active = self.Arduino.outletFeedback(self.Feedback)
+        # if self.Running and not active:
+        #     self.Influx.sendMeasurement("working_outlet", self.Name, 0)
+        #     return False
 
         self.Influx.sendMeasurement("working_outlet", self.Name, 1)
         return True
